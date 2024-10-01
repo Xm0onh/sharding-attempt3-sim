@@ -3,7 +3,6 @@
 package attack
 
 import (
-	"container/heap"
 	"fmt"
 	"sharding/config"
 	"sharding/event"
@@ -32,21 +31,21 @@ func performGrindingAttack(currentTime int64, nodes map[int]*node.Node, eq *even
 	fmt.Println("Current Time:", currentTime)
 	*attackLogs = append(*attackLogs, log)
 
-	for _, n := range nodes {
-		if !n.IsHonest {
-			// Schedule additional LotteryEvents based on the multiplier
-			for i := 0; i < cfg.MaliciousNodeMultiplier; i++ {
-				extraLottery := &event.Event{
-					Timestamp: currentTime, // Immediate participation
-					Type:      event.LotteryEvent,
-					NodeID:    n.ID,
-				}
-				heap.Push(eq, extraLottery)
-			}
-			log := fmt.Sprintf("[Attack] Malicious Node %d scheduled %d additional LotteryEvents", n.ID, cfg.MaliciousNodeMultiplier)
-			*attackLogs = append(*attackLogs, log)
-		}
-	}
+	// for _, n := range nodes {
+	// 	if !n.IsHonest {
+	// 		// Schedule additional LotteryEvents based on the multiplier
+	// 		for i := 0; i < cfg.MaliciousNodeMultiplier; i++ {
+	// 			extraLottery := &event.Event{
+	// 				Timestamp: currentTime, // Immediate participation
+	// 				Type:      event.LotteryEvent,
+	// 				NodeID:    n.ID,
+	// 			}
+	// 			heap.Push(eq, extraLottery)
+	// 		}
+	// 		log := fmt.Sprintf("[Attack] Malicious Node %d scheduled %d additional LotteryEvents", n.ID, cfg.MaliciousNodeMultiplier)
+	// 		*attackLogs = append(*attackLogs, log)
+	// 	}
+	// }
 }
 
 // // stopGrindingAttack logs the termination of the Grinding Attack.

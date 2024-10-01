@@ -77,7 +77,7 @@ func (sim *Simulation) scheduleInitialEvents() {
 	// Schedule initial LotteryEvents for all nodes
 	for _, n := range sim.Nodes {
 		e := &event.Event{
-			Timestamp: sim.CurrentTime + rand.Int63n(sim.Config.TimeStep+1), // Stagger initial lottery
+			Timestamp: sim.CurrentTime + rand.Int63n(sim.Config.BlockProductionInterval+1), // Adjusted interval
 			Type:      event.LotteryEvent,
 			NodeID:    n.ID,
 		}
@@ -120,6 +120,8 @@ func (sim *Simulation) processEvent(e *event.Event) {
 		sim.handleMessageEvent(e)
 	case event.MetricsEvent:
 		sim.handleMetricsEvent()
+	case event.AttackEvent: // Added case for AttackEvent
+		sim.handleAttackEvent(e)
 	default:
 		// Unknown event type
 		log := fmt.Sprintf("[Simulation] Unknown event type at time %d", sim.CurrentTime)
@@ -173,7 +175,7 @@ func (sim *Simulation) handleLotteryEvent(e *event.Event) {
 
 	// Schedule the next LotteryEvent for this node
 	nextEvent := &event.Event{
-		Timestamp: sim.CurrentTime + sim.Config.TimeStep,
+		Timestamp: sim.CurrentTime + sim.Config.BlockProductionInterval, // Adjusted interval
 		Type:      event.LotteryEvent,
 		NodeID:    n.ID,
 	}
@@ -205,9 +207,10 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 
 	// Node creates a block
 	latestBlockID := s.LatestBlockID()
+	// fmt.Println("latestBlockID", latestBlockID, "in shard", shardID, "at time", sim.CurrentTime)
 	blk := producerNode.CreateBlock(latestBlockID, sim.CurrentTime)
 	blk.Timestamp = sim.CurrentTime // Ensure block timestamp is set
-	s.AddBlock(blk)
+	// s.AddBlock(blk)
 
 	// Node broadcasts the block to peers in the shard
 	shardNodes = sim.getShardNodes(shardID) // Refresh shard nodes after potential changes
@@ -278,5 +281,3 @@ func (sim *Simulation) getShardNodes(shardID int) []*node.Node {
 	}
 	return nodes
 }
-
-// Additional field to track rotations in the current step
