@@ -31,19 +31,23 @@ The **Sharding Simulation** models a sharded blockchain network to analyze block
 
 Modify the simulation parameters in `config/config.go`:
 
-| Parameter                   | Type    | Description                                                   | Default Value |
-|-----------------------------|---------|---------------------------------------------------------------|---------------|
-| `NumNodes`                  | `int`   | Total number of nodes in the network.                        | X           |
-| `NumShards`                 | `int`   | Total number of shards in the network.                       | X            |
-| `SimulationTime`            | `int64` | Total duration of the simulation in time units.              | X           |
-| `TimeStep`                  | `int64` | Simulation advances in increments of this time unit.         | 1             |
-| `NetworkDelayMean`          | `int64` | Average network delay in time units for block propagation.   | 5             |
-| `NetworkDelayStd`           | `int64` | Standard deviation of network delay in time units.           | 2             |
-| `MaliciousNodeRatio`        | `float64` | Percentage of nodes that behave maliciously.               | 0.1 (10%)     |
-| `LotteryWinProbability`     | `float64` | Probability of an honest node winning the lottery per attempt. | 0.01          |
-| `MaliciousNodeMultiplier`   | `int`   | Additional lottery attempts for malicious nodes.             | 2             |
-| `BlockProductionInterval`   | `int64` | Time steps between each shard's block production events.     | 6             |
-| `TransactionsPerBlock`      | `int`   | Number of transactions contained in each block.               | 100           |
+| Parameter                   | Type      | Description                                                   | Default Value |
+|-----------------------------|-----------|---------------------------------------------------------------|---------------|
+| `NumNodes`                  | `int`     | Total number of nodes in the network.                         | 10000         |
+| `NumShards`                 | `int`     | Total number of shards in the network.                        | 10            |
+| `SimulationTime`            | `int64`   | Total duration of the simulation in time units.               | 120           |
+| `TimeStep`                  | `int64`   | Simulation advances in increments of this time unit.          | 1             |
+| `NetworkDelayMean`          | `int64`   | Average network delay in time units for block propagation.    | 5             |
+| `NetworkDelayStd`           | `int64`   | Standard deviation of network delay in time units.            | 2             |
+| `MaliciousNodeRatio`        | `float64` | Percentage of nodes that behave maliciously.                  | 0.1 (10%)     |
+| `LotteryWinProbability`     | `float64` | Probability of an honest node winning the lottery per attempt.| 0.001         |
+| `MaliciousNodeMultiplier`   | `int`     | Additional lottery attempts for malicious nodes.              | 5             |
+| `BlockProductionInterval`   | `int64`   | Time steps between each shard's block production events.      | 6             |
+| `TransactionsPerBlock`      | `int`     | Number of transactions contained in each block.               | 100           |
+| `AttackStartTime`           | `int64`   | Time step when the attack starts.                             | 20            |
+| `AttackEndTime`             | `int64`   | Time step when the attack ends.                               | 60            |
+| `AttackType`                | `AttackType` | Type of attack to simulate.                                  | GrindingAttack|
+| `AttackSchedule`            | `map[int64]AttackType` | Schedule of attacks with start and end times.               | Initialized by `InitializeAttackSchedule` |
 
 ## Metrics and Analysis
 
