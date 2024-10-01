@@ -86,11 +86,11 @@ func (mc *MetricsCollector) Collect(timestamp int64, shards map[int]*shard.Shard
 		for _, blk := range s.Blocks {
 			if blk.Timestamp == timestamp {
 				md.BlocksThisStep++
-				md.TransactionsThisStep += config.TransactionsPerBlock
-				if blk.IsMalicious {
-					md.ShardStats[shardID].MaliciousBlocks++
-				} else {
+				if !blk.IsMalicious {
+					md.TransactionsThisStep += config.TransactionsPerBlock
 					md.ShardStats[shardID].HonestBlocks++
+				} else {
+					md.ShardStats[shardID].MaliciousBlocks++
 				}
 			}
 		}
@@ -137,6 +137,18 @@ func (mc *MetricsCollector) GenerateReport() error {
 	// Define attack window
 	attackStart := config.AttackStartTime
 	attackEnd := config.AttackEndTime
+
+	// Accumulate total blocks produced in each shard
+	totalBlocksPerShard := make(map[int]int)
+	totalHonestBlocksPerShard := make(map[int]int)
+	totalMaliciousBlocksPerShard := make(map[int]int)
+	for _, md := range mc.Data {
+		for shardID, stats := range md.ShardStats {
+			totalBlocksPerShard[shardID] += stats.HonestBlocks + stats.MaliciousBlocks
+			totalHonestBlocksPerShard[shardID] += stats.HonestBlocks
+			totalMaliciousBlocksPerShard[shardID] += stats.MaliciousBlocks
+		}
+	}
 
 	for _, md := range mc.Data {
 		// Write global metrics
@@ -192,6 +204,26 @@ func (mc *MetricsCollector) GenerateReport() error {
 		}
 	}
 
+	// Write the total number of blocks produced in each shard
+	for shardID, totalBlocks := range totalBlocksPerShard {
+		_, err := file.WriteString(fmt.Sprintf("Total Blocks Produced in Shard %d: %d\n", shardID, totalBlocks))
+		if err != nil {
+			return fmt.Errorf("failed to write to file: %w", err)
+		}
+	}
+
+	// Write the total number of honest and malicious blocks in each shard
+	for shardID := range totalBlocksPerShard {
+		_, err := file.WriteString(fmt.Sprintf("Total Honest Blocks in Shard %d: %d\n", shardID, totalHonestBlocksPerShard[shardID]))
+		if err != nil {
+			return fmt.Errorf("failed to write to file: %w", err)
+		}
+		_, err = file.WriteString(fmt.Sprintf("Total Malicious Blocks in Shard %d: %d\n", shardID, totalMaliciousBlocksPerShard[shardID]))
+		if err != nil {
+			return fmt.Errorf("failed to write to file: %w", err)
+		}
+	}
+
 	// Calculate average TPS for each period
 	avgPreAttackTPS := 0.0
 	if preAttackCount > 0 {
@@ -212,22 +244,6 @@ func (mc *MetricsCollector) GenerateReport() error {
 	totalPreAttackRotations := preAttackRotations
 	totalDuringAttackRotations := duringAttackRotations
 	totalPostAttackRotations := postAttackRotations
-
-	// Accumulate total blocks produced in each shard
-	totalBlocksPerShard := make(map[int]int)
-	for _, md := range mc.Data {
-		for shardID, stats := range md.ShardStats {
-			totalBlocksPerShard[shardID] += stats.HonestBlocks + stats.MaliciousBlocks
-		}
-	}
-
-	// Write the total number of blocks produced in each shard
-	for shardID, totalBlocks := range totalBlocksPerShard {
-		_, err := file.WriteString(fmt.Sprintf("Total Blocks Produced in Shard %d: %d\n", shardID, totalBlocks))
-		if err != nil {
-			return fmt.Errorf("failed to write to file: %w", err)
-		}
-	}
 
 	// Append summary analysis
 	_, err = file.WriteString("Summary Analysis:\n")

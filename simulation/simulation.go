@@ -26,18 +26,20 @@ type Simulation struct {
 	AttackLogs                         []string
 	currentStepMaliciousShardRotations int
 	TotalRotations                     int
+	NextBlockProducer                  map[int]int // New field to track the next block producer for each shard
 }
 
 func NewSimulation(cfg config.Config) *Simulation {
 	sim := &Simulation{
-		Config:        cfg,
-		Nodes:         make(map[int]*node.Node),
-		Shards:        make(map[int]*shard.Shard),
-		EventQueue:    event.NewEventQueue(),
-		Metrics:       metrics.NewMetricsCollector(),
-		CurrentTime:   0,
-		NetworkDelays: make([]int64, 0, 1000),
-		AttackLogs:    make([]string, 0),
+		Config:            cfg,
+		Nodes:             make(map[int]*node.Node),
+		Shards:            make(map[int]*shard.Shard),
+		EventQueue:        event.NewEventQueue(),
+		Metrics:           metrics.NewMetricsCollector(),
+		CurrentTime:       0,
+		NetworkDelays:     make([]int64, 0, 1000),
+		AttackLogs:        make([]string, 0),
+		NextBlockProducer: make(map[int]int), // Initialize the new field
 	}
 
 	sim.initializeNodes()
@@ -152,6 +154,9 @@ func (sim *Simulation) handleLotteryEvent(e *event.Event) {
 		newShard.AddNode(n)
 		n.AssignedShard = newShardID
 
+		// Set the next block producer for the new shard
+		sim.NextBlockProducer[newShardID] = n.ID
+
 		// Node produces a block immediately upon assignment to new shard
 		latestBlockID := newShard.LatestBlockID()
 		blk := n.CreateBlock(latestBlockID, sim.CurrentTime)
@@ -194,18 +199,19 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 		return
 	}
 
-	// Randomly select a node from shardNodes
-	selectedNode := shardNodes[rand.Intn(len(shardNodes))]
+	// Get the node that should produce the next block
+	producerID := sim.NextBlockProducer[shardID]
+	producerNode := sim.Nodes[producerID]
 
 	// Node creates a block
 	latestBlockID := s.LatestBlockID()
-	blk := selectedNode.CreateBlock(latestBlockID, sim.CurrentTime)
+	blk := producerNode.CreateBlock(latestBlockID, sim.CurrentTime)
 	blk.Timestamp = sim.CurrentTime // Ensure block timestamp is set
 	s.AddBlock(blk)
 
 	// Node broadcasts the block to peers in the shard
 	shardNodes = sim.getShardNodes(shardID) // Refresh shard nodes after potential changes
-	events := selectedNode.BroadcastBlock(blk, shardNodes, sim.CurrentTime)
+	events := producerNode.BroadcastBlock(blk, shardNodes, sim.CurrentTime)
 	for _, evt := range events {
 		heap.Push(sim.EventQueue, evt)
 		sim.NetworkDelays = append(sim.NetworkDelays, evt.Timestamp-sim.CurrentTime)
