@@ -63,6 +63,28 @@ The simulation collects the following metrics:
   - Honest Blocks: Blocks produced by honest nodes in each shard.
   - Malicious Blocks: Blocks produced by malicious nodes in each shard.
 
+## Event Mechanism
+
+The simulation uses an event-driven mechanism to manage and process various activities. Events are scheduled and processed based on their timestamps to simulate the passage of time in the network.
+
+### Event Types
+
+- **LotteryEvent**: Nodes attempt to join shards via a lottery.
+- **MessageEvent**: Nodes receive and process incoming blocks.
+- **AttackEvent**: Simulates attacks on the network.
+- **MetricsEvent**: Collects and logs metrics.
+- **ShardBlockProductionEvent**: Shards produce blocks at regular intervals.
+
+### Event Queue
+
+Events are managed using a priority queue to ensure they are processed in the correct order. The event queue is implemented using a heap, which allows efficient insertion and removal of events based on their timestamps.
+
+- **Initialization**: The event queue is initialized using `NewEventQueue()`.
+- **Event Handling**: Events are added to the queue using `Push()` and processed in order using `Pop()`.
+- **Empty Check**: The queue can be checked for emptiness using `IsEmpty()`.
+
+This event-driven approach allows the simulation to accurately model the timing and sequence of activities in a sharded blockchain network.
+
 <!-- ## Extending the Simulation
 
 Enhance the simulation by:
