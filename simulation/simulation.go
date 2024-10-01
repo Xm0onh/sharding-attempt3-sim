@@ -127,39 +127,45 @@ func (sim *Simulation) processEvent(e *event.Event) {
 
 func (sim *Simulation) handleLotteryEvent(e *event.Event) {
 	n := sim.Nodes[e.NodeID]
-	// fmt.Println("Node ID:", n.ID, "Current Time:", sim.CurrentTime)
-	won, assignedShard := n.ParticipateInLottery(sim.CurrentTime, sim.Config.NumShards)
-	maliciousShardRotation := 0 // Initialize counter for this step
+	won, newShardID := n.ParticipateInLottery(sim.CurrentTime, sim.Config.NumShards)
+	maliciousShardRotation := 0
 
 	if won {
-		log := fmt.Sprintf("[Simulation] Node %d won the lottery and assigned to Shard %d at time %d", n.ID, assignedShard, sim.CurrentTime)
+		oldShardID := n.AssignedShard
+		log := fmt.Sprintf("[Simulation] Node %d won the lottery and moved from Shard %d to Shard %d at time %d", n.ID, oldShardID, newShardID, sim.CurrentTime)
 		sim.AttackLogs = append(sim.AttackLogs, log)
 
-		// Increment TotalRotations
 		sim.TotalRotations++
 
-		// Check if the node is malicious
 		if !n.IsHonest {
 			maliciousShardRotation = 1
 		}
 
-		// Assign node to the shard using AddNode to ensure proper logging
-		s := sim.Shards[assignedShard]
-		s.AddNode(n)
+		// Remove node from old shard if it was assigned to one
+		if oldShardID != -1 {
+			oldShard := sim.Shards[oldShardID]
+			oldShard.RemoveNode(n.ID)
+		}
 
-		// Node produces a block immediately upon assignment
-		latestBlockID := s.LatestBlockID()
+		// Assign node to the new shard
+		newShard := sim.Shards[newShardID]
+		newShard.AddNode(n)
+		n.AssignedShard = newShardID
+
+		// Node produces a block immediately upon assignment to new shard
+		latestBlockID := newShard.LatestBlockID()
 		blk := n.CreateBlock(latestBlockID, sim.CurrentTime)
-		s.AddBlock(blk)
+		newShard.AddBlock(blk)
 
-		// Node broadcasts the block to peers in the shard
-		shardNodes := sim.getShardNodes(assignedShard)
+		// Node broadcasts the block to peers in the new shard
+		shardNodes := sim.getShardNodes(newShardID)
 		events := n.BroadcastBlock(blk, shardNodes, sim.CurrentTime)
 		for _, evt := range events {
 			heap.Push(sim.EventQueue, evt)
 			sim.NetworkDelays = append(sim.NetworkDelays, evt.Timestamp-sim.CurrentTime)
 		}
 	}
+
 	// Schedule the next LotteryEvent for this node
 	nextEvent := &event.Event{
 		Timestamp: sim.CurrentTime + sim.Config.TimeStep,
@@ -168,7 +174,6 @@ func (sim *Simulation) handleLotteryEvent(e *event.Event) {
 	}
 	heap.Push(sim.EventQueue, nextEvent)
 
-	// Pass the maliciousShardRotation count to metrics
 	sim.currentStepMaliciousShardRotations += maliciousShardRotation
 }
 

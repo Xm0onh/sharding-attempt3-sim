@@ -213,6 +213,22 @@ func (mc *MetricsCollector) GenerateReport() error {
 	totalDuringAttackRotations := duringAttackRotations
 	totalPostAttackRotations := postAttackRotations
 
+	// Accumulate total blocks produced in each shard
+	totalBlocksPerShard := make(map[int]int)
+	for _, md := range mc.Data {
+		for shardID, stats := range md.ShardStats {
+			totalBlocksPerShard[shardID] += stats.HonestBlocks + stats.MaliciousBlocks
+		}
+	}
+
+	// Write the total number of blocks produced in each shard
+	for shardID, totalBlocks := range totalBlocksPerShard {
+		_, err := file.WriteString(fmt.Sprintf("Total Blocks Produced in Shard %d: %d\n", shardID, totalBlocks))
+		if err != nil {
+			return fmt.Errorf("failed to write to file: %w", err)
+		}
+	}
+
 	// Append summary analysis
 	_, err = file.WriteString("Summary Analysis:\n")
 	if err != nil {
