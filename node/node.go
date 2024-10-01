@@ -5,6 +5,7 @@ import (
 	"sharding/block"
 	"sharding/config"
 	"sharding/event"
+	"sharding/lottery"
 	"sharding/utils"
 )
 
@@ -37,17 +38,19 @@ func (n *Node) ParticipateInLottery(currentTime int64, numShards int) (bool, int
 		return false, -1 // Already assigned to a shard
 	}
 
-	win := utils.WinLottery(n.IsHonest, 1) // Each LotteryEvent represents one attempt
+	win := lottery.WinLottery(n.IsHonest, 1, currentTime, config.AttackStartTime, config.AttackEndTime) // Each LotteryEvent represents one attempt
 	if win {
 		// Assign a shard based on the winning ticket
-		n.AssignedShard = utils.AssignShard(n.ID, currentTime, numShards)
+		n.AssignedShard = lottery.AssignShard(n.ID, currentTime, numShards)
 		return true, n.AssignedShard
 	}
 	return false, -1
 }
+
 func (n *Node) IsAssignedToShard() bool {
 	return n.AssignedShard != -1
 }
+
 func (n *Node) CreateBlock(previousBlockID int, currentTime int64) *block.Block {
 	blkID := previousBlockID + 1
 	blk := block.NewBlock(blkID, n.AssignedShard, n.ID, previousBlockID, currentTime)
@@ -82,8 +85,11 @@ func (n *Node) ProcessMessage(e *event.Event) {
 }
 
 func (n *Node) HandleBlock(blk *block.Block) {
+
 	if _, exists := n.KnownBlocks[blk.ID]; !exists {
-		n.KnownBlocks[blk.ID] = blk
+		if !blk.IsMalicious {
+			n.KnownBlocks[blk.ID] = blk
+		}
 		// The shard's state is managed by the simulation
 	}
 }

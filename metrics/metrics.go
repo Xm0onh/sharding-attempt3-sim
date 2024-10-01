@@ -185,7 +185,6 @@ func (mc *MetricsCollector) GenerateReport() error {
 			postAttackCount++
 			postAttackRotations += md.MaliciousShardRotationsThisStep
 		}
-
 		// Add a separator for readability
 		_, err = file.WriteString("\n")
 		if err != nil {

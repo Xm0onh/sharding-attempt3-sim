@@ -25,6 +25,7 @@ type Simulation struct {
 	NetworkDelays                      []int64 // For network latency statistics
 	AttackLogs                         []string
 	currentStepMaliciousShardRotations int
+	TotalRotations                     int
 }
 
 func NewSimulation(cfg config.Config) *Simulation {
@@ -115,8 +116,6 @@ func (sim *Simulation) processEvent(e *event.Event) {
 		sim.handleShardBlockProductionEvent(e)
 	case event.MessageEvent:
 		sim.handleMessageEvent(e)
-	case event.AttackEvent:
-		sim.handleAttackEvent(e)
 	case event.MetricsEvent:
 		sim.handleMetricsEvent()
 	default:
@@ -128,12 +127,16 @@ func (sim *Simulation) processEvent(e *event.Event) {
 
 func (sim *Simulation) handleLotteryEvent(e *event.Event) {
 	n := sim.Nodes[e.NodeID]
+	// fmt.Println("Node ID:", n.ID, "Current Time:", sim.CurrentTime)
 	won, assignedShard := n.ParticipateInLottery(sim.CurrentTime, sim.Config.NumShards)
 	maliciousShardRotation := 0 // Initialize counter for this step
 
 	if won {
 		log := fmt.Sprintf("[Simulation] Node %d won the lottery and assigned to Shard %d at time %d", n.ID, assignedShard, sim.CurrentTime)
 		sim.AttackLogs = append(sim.AttackLogs, log)
+
+		// Increment TotalRotations
+		sim.TotalRotations++
 
 		// Check if the node is malicious
 		if !n.IsHonest {
@@ -235,11 +238,17 @@ func (sim *Simulation) handleAttackEvent(e *event.Event) {
 }
 
 func (sim *Simulation) handleMetricsEvent() {
-	// Collect metrics with the count of malicious shard rotations in this step
+	// Collect metrics with the count of malicious shard rotations and total rotations in this step
 	sim.Metrics.Collect(sim.CurrentTime, sim.Shards, sim.Nodes, sim.NetworkDelays, sim.AttackLogs, sim.currentStepMaliciousShardRotations)
+	// fmt.Printf("Current Time: %d, Malicious Shard Rotations: %d, Percentage of malicious: %.2f%%\n",
+	// 	sim.CurrentTime,
+	// 	sim.currentStepMaliciousShardRotations,
+	// 	float64(sim.currentStepMaliciousShardRotations)/float64(sim.TotalRotations)*100)
+
 	sim.NetworkDelays = sim.NetworkDelays[:0]
 	sim.AttackLogs = sim.AttackLogs[:0]        // Reset attack logs after collecting
-	sim.currentStepMaliciousShardRotations = 0 // Reset rotations count
+	sim.currentStepMaliciousShardRotations = 0 // Reset malicious rotations count
+	sim.TotalRotations = 0                     // Reset total rotations count
 
 	// Schedule the next MetricsEvent
 	nextEvent := &event.Event{

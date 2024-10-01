@@ -29,6 +29,7 @@ func ExecuteAttack(atkType config.AttackType, currentTime int64, nodes map[int]*
 // performGrindingAttack schedules additional LotteryEvents for malicious nodes to increase their shard assignments.
 func performGrindingAttack(currentTime int64, nodes map[int]*node.Node, eq *event.EventQueue, cfg config.Config, attackLogs *[]string) {
 	log := fmt.Sprintf("[Attack] Performing Grinding Attack at time %d", currentTime)
+	fmt.Println("Current Time:", currentTime)
 	*attackLogs = append(*attackLogs, log)
 
 	for _, n := range nodes {
@@ -51,7 +52,7 @@ func performGrindingAttack(currentTime int64, nodes map[int]*node.Node, eq *even
 // // stopGrindingAttack logs the termination of the Grinding Attack.
 // // Currently, no specific action is required to stop the attack.
 // // This function serves as a placeholder for potential future implementations.
-// func stopGrindingAttack(currentTime int64, nodes map[int]*node.Node, shards map[int]*shard.Shard, eq *event.EventQueue, cfg config.Config, attackLogs *[]string) {
-// 	log := fmt.Sprintf("[Attack] Stopping Grinding Attack at time %d", currentTime)
-// 	*attackLogs = append(*attackLogs, log)
-// }
+func stopGrindingAttack(currentTime int64, nodes map[int]*node.Node, shards map[int]*shard.Shard, eq *event.EventQueue, cfg config.Config, attackLogs *[]string) {
+	log := fmt.Sprintf("[Attack] Stopping Grinding Attack at time %d", currentTime)
+	*attackLogs = append(*attackLogs, log)
+}
