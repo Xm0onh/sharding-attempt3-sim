@@ -27,7 +27,3 @@ func (s *Shard) LatestBlockID() int {
 	}
 	return s.Blocks[len(s.Blocks)-1].ID
 }
-
-func (s *Shard) NextBlockID() int {
-	return s.LatestBlockID() + 1
-}

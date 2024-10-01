@@ -11,12 +11,14 @@ const (
 	MessageEvent
 	AttackEvent
 	MetricsEvent
+	ShardBlockProductionEvent
 )
 
 type Event struct {
 	Timestamp int64
 	Type      EventType
 	NodeID    int
+	ShardID   int
 	Data      interface{}
 }
 
@@ -31,7 +33,6 @@ func NewEventQueue() *EventQueue {
 func (eq EventQueue) Len() int { return len(eq) }
 
 func (eq EventQueue) Less(i, j int) bool {
-	// Min-heap based on Timestamp
 	return eq[i].Timestamp < eq[j].Timestamp
 }
 
@@ -40,12 +41,10 @@ func (eq EventQueue) Swap(i, j int) {
 }
 
 func (eq *EventQueue) Push(x interface{}) {
-	// Push uses pointer receiver because it modifies the slice
 	*eq = append(*eq, x.(*Event))
 }
 
 func (eq *EventQueue) Pop() interface{} {
-	// Pop removes and returns the last element
 	old := *eq
 	n := len(old)
 	x := old[n-1]

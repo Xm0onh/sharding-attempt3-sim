@@ -9,6 +9,8 @@ import (
 	"sharding/metrics"
 	"sharding/node"
 	"sharding/shard"
+
+	"golang.org/x/exp/rand"
 )
 
 type Simulation struct {
@@ -54,6 +56,17 @@ func (sim *Simulation) initializeShards() {
 }
 
 func (sim *Simulation) scheduleInitialEvents() {
+	// Schedule initial ShardBlockProductionEvents for each shard
+	for _, s := range sim.Shards {
+		e := &event.Event{
+			Timestamp: sim.CurrentTime,
+			Type:      event.ShardBlockProductionEvent,
+			ShardID:   s.ID,
+		}
+		heap.Push(sim.EventQueue, e)
+	}
+
+	// Schedule initial LotteryEvents for all nodes
 	for _, n := range sim.Nodes {
 		e := &event.Event{
 			Timestamp: sim.CurrentTime,
@@ -63,11 +76,82 @@ func (sim *Simulation) scheduleInitialEvents() {
 		heap.Push(sim.EventQueue, e)
 	}
 
+	// Schedule the first MetricsEvent
 	e := &event.Event{
 		Timestamp: sim.CurrentTime + sim.Config.TimeStep,
 		Type:      event.MetricsEvent,
 	}
 	heap.Push(sim.EventQueue, e)
+}
+
+func (sim *Simulation) handleLotteryEvent(e *event.Event) {
+	n := sim.Nodes[e.NodeID]
+	won, assignedShard := n.ParticipateInLottery(sim.CurrentTime, sim.Config.NumShards)
+	if won {
+		// Node has won the lottery and was assigned to a shard
+		// Node creates a block in that shard
+		s := sim.Shards[assignedShard]
+		latestBlockID := s.LatestBlockID()
+		blk := n.CreateBlock(latestBlockID, sim.CurrentTime)
+		s.AddBlock(blk)
+
+		// Node broadcasts the block to peers in the shard
+		shardNodes := sim.getShardNodes(assignedShard)
+		events := n.BroadcastBlock(blk, shardNodes, sim.CurrentTime)
+		for _, evt := range events {
+			heap.Push(sim.EventQueue, evt)
+			sim.NetworkDelays = append(sim.NetworkDelays, evt.Timestamp-sim.CurrentTime)
+		}
+	}
+	// Schedule the next LotteryEvent for this node
+	nextEvent := &event.Event{
+		Timestamp: sim.CurrentTime + sim.Config.TimeStep,
+		Type:      event.LotteryEvent,
+		NodeID:    n.ID,
+	}
+	heap.Push(sim.EventQueue, nextEvent)
+}
+
+func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
+	shardID := e.ShardID
+	s := sim.Shards[shardID]
+	shardNodes := sim.getShardNodes(shardID)
+
+	if len(shardNodes) == 0 {
+		// No nodes assigned to this shard
+		// Schedule next ShardBlockProductionEvent
+		nextEvent := &event.Event{
+			Timestamp: sim.CurrentTime + sim.Config.BlockProductionInterval,
+			Type:      event.ShardBlockProductionEvent,
+			ShardID:   shardID,
+		}
+		heap.Push(sim.EventQueue, nextEvent)
+		return
+	}
+
+	// Randomly select a node from shardNodes
+	selectedNode := shardNodes[rand.Intn(len(shardNodes))]
+
+	// Node creates a block
+	latestBlockID := s.LatestBlockID()
+	blk := selectedNode.CreateBlock(latestBlockID, sim.CurrentTime)
+	blk.IsMalicious = !selectedNode.IsHonest // Mark if block is malicious
+	s.AddBlock(blk)
+
+	// Node broadcasts the block to peers in the shard
+	events := selectedNode.BroadcastBlock(blk, shardNodes, sim.CurrentTime)
+	for _, evt := range events {
+		heap.Push(sim.EventQueue, evt)
+		sim.NetworkDelays = append(sim.NetworkDelays, evt.Timestamp-sim.CurrentTime)
+	}
+
+	// Schedule next ShardBlockProductionEvent for this shard
+	nextEvent := &event.Event{
+		Timestamp: sim.CurrentTime + sim.Config.BlockProductionInterval,
+		Type:      event.ShardBlockProductionEvent,
+		ShardID:   shardID,
+	}
+	heap.Push(sim.EventQueue, nextEvent)
 }
 
 func (sim *Simulation) Run() {
@@ -91,31 +175,6 @@ func (sim *Simulation) processEvent(e *event.Event) {
 	default:
 		// Unknown event type
 	}
-}
-
-func (sim *Simulation) handleLotteryEvent(e *event.Event) {
-	n := sim.Nodes[e.NodeID]
-	won := n.ParticipateInLottery(sim.CurrentTime, sim.Config.NumShards)
-	if won {
-		s := sim.Shards[n.AssignedShard]
-		latestBlockID := s.LatestBlockID()
-		blk := n.CreateBlock(latestBlockID, sim.CurrentTime)
-		s.AddBlock(blk)
-
-		peers := sim.getShardNodes(n.AssignedShard)
-		events := n.BroadcastBlock(blk, peers, sim.CurrentTime)
-		for _, evt := range events {
-			heap.Push(sim.EventQueue, evt)
-			sim.NetworkDelays = append(sim.NetworkDelays, evt.Timestamp-sim.CurrentTime)
-		}
-	}
-
-	nextEvent := &event.Event{
-		Timestamp: sim.CurrentTime + sim.Config.TimeStep,
-		Type:      event.LotteryEvent,
-		NodeID:    n.ID,
-	}
-	heap.Push(sim.EventQueue, nextEvent)
 }
 
 func (sim *Simulation) handleMessageEvent(e *event.Event) {

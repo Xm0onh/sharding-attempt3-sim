@@ -5,7 +5,6 @@ import (
 	"sharding/block"
 	"sharding/config"
 	"sharding/event"
-	"sharding/lottery"
 	"sharding/utils"
 )
 
@@ -21,7 +20,7 @@ func NewNode(id int) *Node {
 	n := &Node{
 		ID:            id,
 		IsHonest:      true,
-		AssignedShard: -1,
+		AssignedShard: -1, // Unassigned initially
 		Resources:     1,
 		KnownBlocks:   make(map[int]*block.Block),
 	}
@@ -33,18 +32,26 @@ func NewNode(id int) *Node {
 	return n
 }
 
-func (n *Node) ParticipateInLottery(currentTime int64, numShards int) bool {
-	win := lottery.WinLottery(n.IsHonest, n.Resources)
+func (n *Node) ParticipateInLottery(currentTime int64, numShards int) (bool, int) {
+	win := utils.WinLottery(n.IsHonest, n.Resources)
 	if win {
-		n.AssignedShard = lottery.AssignShard(n.ID, currentTime, numShards)
-		return true
+		if !n.IsAssignedToShard() {
+			// Assign a shard based on the winning ticket
+			n.AssignedShard = utils.AssignShard(n.ID, currentTime, numShards)
+		}
+		return true, n.AssignedShard
 	}
-	return false
+	return false, -1
+}
+
+func (n *Node) IsAssignedToShard() bool {
+	return n.AssignedShard != -1
 }
 
 func (n *Node) CreateBlock(previousBlockID int, currentTime int64) *block.Block {
 	blkID := previousBlockID + 1
 	blk := block.NewBlock(blkID, n.AssignedShard, n.ID, previousBlockID, currentTime)
+	blk.IsMalicious = !n.IsHonest // Mark if block is malicious
 	return blk
 }
 

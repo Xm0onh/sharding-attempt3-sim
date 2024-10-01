@@ -9,15 +9,17 @@ import (
 func main() {
 	// Initialize simulation parameters
 	cfg := config.Config{
-		NumNodes:         config.NumNodes,
-		NumShards:        config.NumShards,
-		SimulationTime:   config.SimulationTime,
-		TimeStep:         config.TimeStep,
-		NetworkDelayMean: config.NetworkDelayMean,
-		NetworkDelayStd:  config.NetworkDelayStd,
-		AttackStartTime:  config.AttackStartTime,
-		AttackEndTime:    config.AttackEndTime,
-		AttackType:       config.NoAttack, // Change as needed
+		NumNodes:                config.NumNodes,
+		NumShards:               config.NumShards,
+		SimulationTime:          config.SimulationTime,
+		TimeStep:                config.TimeStep,
+		NetworkDelayMean:        config.NetworkDelayMean,
+		NetworkDelayStd:         config.NetworkDelayStd,
+		AttackStartTime:         config.AttackStartTime,
+		AttackEndTime:           config.AttackEndTime,
+		AttackType:              config.NoAttack, // Change as needed
+		BlockProductionInterval: config.BlockProductionInterval,
+		TransactionsPerBlock:    config.TransactionsPerBlock,
 	}
 
 	// Create a new simulation instance
@@ -29,5 +31,10 @@ func main() {
 	fmt.Println("Simulation completed.")
 
 	// Generate metrics report
-	sim.Metrics.GenerateReport()
+	err := sim.Metrics.GenerateReport()
+	if err != nil {
+		fmt.Printf("Error generating metrics report: %v\n", err)
+	} else {
+		fmt.Println("Metrics report generated.")
+	}
 }

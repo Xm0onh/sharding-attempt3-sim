@@ -6,6 +6,7 @@ type Block struct {
 	ProducerID   int
 	PreviousHash int
 	Timestamp    int64
+	IsMalicious  bool
 }
 
 func NewBlock(id, shardID, producerID, previousHash int, timestamp int64) *Block {
@@ -15,5 +16,6 @@ func NewBlock(id, shardID, producerID, previousHash int, timestamp int64) *Block
 		ProducerID:   producerID,
 		PreviousHash: previousHash,
 		Timestamp:    timestamp,
+		IsMalicious:  false, // Default to false
 	}
 }
