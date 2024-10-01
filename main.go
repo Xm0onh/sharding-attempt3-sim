@@ -1,3 +1,5 @@
+// main.go
+
 package main
 
 import (
@@ -15,11 +17,12 @@ func main() {
 		TimeStep:                config.TimeStep,
 		NetworkDelayMean:        config.NetworkDelayMean,
 		NetworkDelayStd:         config.NetworkDelayStd,
-		AttackStartTime:         config.AttackStartTime,
-		AttackEndTime:           config.AttackEndTime,
-		AttackType:              config.NoAttack, // Change as needed
+		MaliciousNodeRatio:      config.MaliciousNodeRatio,
+		LotteryWinProbability:   config.LotteryWinProbability,
+		MaliciousNodeMultiplier: config.MaliciousNodeMultiplier,
 		BlockProductionInterval: config.BlockProductionInterval,
 		TransactionsPerBlock:    config.TransactionsPerBlock,
+		AttackSchedule:          config.InitializeAttackSchedule(),
 	}
 
 	// Create a new simulation instance

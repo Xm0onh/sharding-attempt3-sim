@@ -1,7 +1,11 @@
+// simulation/simulation.go
+
 package simulation
 
 import (
 	"container/heap"
+	"fmt"
+	"math/rand"
 	"sharding/attack"
 	"sharding/block"
 	"sharding/config"
@@ -9,8 +13,6 @@ import (
 	"sharding/metrics"
 	"sharding/node"
 	"sharding/shard"
-
-	"golang.org/x/exp/rand"
 )
 
 type Simulation struct {
@@ -21,6 +23,7 @@ type Simulation struct {
 	Metrics       *metrics.MetricsCollector
 	CurrentTime   int64
 	NetworkDelays []int64 // For network latency statistics
+	AttackLogs    []string
 }
 
 func NewSimulation(cfg config.Config) *Simulation {
@@ -32,6 +35,7 @@ func NewSimulation(cfg config.Config) *Simulation {
 		Metrics:       metrics.NewMetricsCollector(),
 		CurrentTime:   0,
 		NetworkDelays: make([]int64, 0, 1000),
+		AttackLogs:    make([]string, 0),
 	}
 
 	sim.initializeNodes()
@@ -59,7 +63,7 @@ func (sim *Simulation) scheduleInitialEvents() {
 	// Schedule initial ShardBlockProductionEvents for each shard
 	for _, s := range sim.Shards {
 		e := &event.Event{
-			Timestamp: sim.CurrentTime,
+			Timestamp: sim.CurrentTime + rand.Int63n(sim.Config.BlockProductionInterval), // Stagger initial block production
 			Type:      event.ShardBlockProductionEvent,
 			ShardID:   s.ID,
 		}
@@ -69,7 +73,7 @@ func (sim *Simulation) scheduleInitialEvents() {
 	// Schedule initial LotteryEvents for all nodes
 	for _, n := range sim.Nodes {
 		e := &event.Event{
-			Timestamp: sim.CurrentTime,
+			Timestamp: sim.CurrentTime + rand.Int63n(sim.Config.TimeStep+1), // Stagger initial lottery
 			Type:      event.LotteryEvent,
 			NodeID:    n.ID,
 		}
@@ -82,15 +86,57 @@ func (sim *Simulation) scheduleInitialEvents() {
 		Type:      event.MetricsEvent,
 	}
 	heap.Push(sim.EventQueue, e)
+
+	// Schedule AttackEvents based on AttackSchedule
+	for atkTime, atkType := range sim.Config.AttackSchedule {
+		e := &event.Event{
+			Timestamp: atkTime,
+			Type:      event.AttackEvent,
+			Data:      atkType, // Pass the attack type as data
+		}
+		heap.Push(sim.EventQueue, e)
+	}
+}
+
+func (sim *Simulation) Run() {
+	for !sim.EventQueue.IsEmpty() && sim.CurrentTime <= sim.Config.SimulationTime {
+		e := heap.Pop(sim.EventQueue).(*event.Event) // Type assertion added
+		sim.CurrentTime = e.Timestamp
+		sim.processEvent(e)
+	}
+}
+
+func (sim *Simulation) processEvent(e *event.Event) {
+	switch e.Type {
+	case event.LotteryEvent:
+		sim.handleLotteryEvent(e)
+	case event.ShardBlockProductionEvent:
+		sim.handleShardBlockProductionEvent(e)
+	case event.MessageEvent:
+		sim.handleMessageEvent(e)
+	case event.AttackEvent:
+		sim.handleAttackEvent(e)
+	case event.MetricsEvent:
+		sim.handleMetricsEvent()
+	default:
+		// Unknown event type
+		log := fmt.Sprintf("[Simulation] Unknown event type at time %d", sim.CurrentTime)
+		sim.AttackLogs = append(sim.AttackLogs, log)
+	}
 }
 
 func (sim *Simulation) handleLotteryEvent(e *event.Event) {
 	n := sim.Nodes[e.NodeID]
 	won, assignedShard := n.ParticipateInLottery(sim.CurrentTime, sim.Config.NumShards)
 	if won {
-		// Node has won the lottery and was assigned to a shard
-		// Node creates a block in that shard
+		log := fmt.Sprintf("[Simulation] Node %d won the lottery and assigned to Shard %d at time %d", n.ID, assignedShard, sim.CurrentTime)
+		sim.AttackLogs = append(sim.AttackLogs, log)
+
+		// Assign node to the shard using AddNode to ensure proper logging
 		s := sim.Shards[assignedShard]
+		s.AddNode(n)
+
+		// Node produces a block immediately upon assignment
 		latestBlockID := s.LatestBlockID()
 		blk := n.CreateBlock(latestBlockID, sim.CurrentTime)
 		s.AddBlock(blk)
@@ -135,7 +181,6 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 	// Node creates a block
 	latestBlockID := s.LatestBlockID()
 	blk := selectedNode.CreateBlock(latestBlockID, sim.CurrentTime)
-	blk.IsMalicious = !selectedNode.IsHonest // Mark if block is malicious
 	s.AddBlock(blk)
 
 	// Node broadcasts the block to peers in the shard
@@ -154,29 +199,6 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 	heap.Push(sim.EventQueue, nextEvent)
 }
 
-func (sim *Simulation) Run() {
-	for !sim.EventQueue.IsEmpty() && sim.CurrentTime <= sim.Config.SimulationTime {
-		e := heap.Pop(sim.EventQueue).(*event.Event) // Type assertion added
-		sim.CurrentTime = e.Timestamp
-		sim.processEvent(e)
-	}
-}
-
-func (sim *Simulation) processEvent(e *event.Event) {
-	switch e.Type {
-	case event.LotteryEvent:
-		sim.handleLotteryEvent(e)
-	case event.MessageEvent:
-		sim.handleMessageEvent(e)
-	case event.AttackEvent:
-		attack.ExecuteAttack(sim.Config.AttackType, sim.CurrentTime, sim.Nodes, sim.Shards, sim.EventQueue)
-	case event.MetricsEvent:
-		sim.handleMetricsEvent(e)
-	default:
-		// Unknown event type
-	}
-}
-
 func (sim *Simulation) handleMessageEvent(e *event.Event) {
 	n := sim.Nodes[e.NodeID]
 	n.ProcessMessage(e)
@@ -188,9 +210,23 @@ func (sim *Simulation) handleMessageEvent(e *event.Event) {
 	}
 }
 
-func (sim *Simulation) handleMetricsEvent(e *event.Event) {
-	sim.Metrics.Collect(sim.CurrentTime, sim.Shards, sim.Nodes, sim.NetworkDelays)
+func (sim *Simulation) handleAttackEvent(e *event.Event) {
+	atkType, ok := e.Data.(config.AttackType)
+	if !ok {
+		log := fmt.Sprintf("[Simulation] Invalid attack data at time %d", sim.CurrentTime)
+		sim.AttackLogs = append(sim.AttackLogs, log)
+		return
+	}
+
+	attack.ExecuteAttack(atkType, sim.CurrentTime, sim.Nodes, sim.Shards, sim.EventQueue, sim.Config, &sim.AttackLogs)
+}
+
+func (sim *Simulation) handleMetricsEvent() {
+	sim.Metrics.Collect(sim.CurrentTime, sim.Shards, sim.Nodes, sim.NetworkDelays, sim.AttackLogs)
 	sim.NetworkDelays = sim.NetworkDelays[:0]
+	sim.AttackLogs = sim.AttackLogs[:0] // Reset attack logs after collecting
+
+	// Schedule the next MetricsEvent
 	nextEvent := &event.Event{
 		Timestamp: sim.CurrentTime + sim.Config.TimeStep,
 		Type:      event.MetricsEvent,
