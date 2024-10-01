@@ -59,7 +59,7 @@ The simulation collects the following metrics:
   - Honest Blocks: Blocks produced by honest nodes in each shard.
   - Malicious Blocks: Blocks produced by malicious nodes in each shard.
 
-## Extending the Simulation
+<!-- ## Extending the Simulation
 
 Enhance the simulation by:
 
@@ -71,10 +71,6 @@ Enhance the simulation by:
    - Simulate individual transactions within blocks for more granular metrics.
    - Track transaction confirmation times and success rates.
 
-3. **Consensus Mechanisms**: 
-   - Implement fork resolution and consensus protocols to study chain integrity.
-   - Explore different consensus algorithms (e.g., PoS, DPoS) and their impact.
-
 4. **Advanced Metrics**: 
    - Collect additional metrics such as:
      - Fork rates
@@ -84,7 +80,7 @@ Enhance the simulation by:
 
 5. **Visualization**: 
    - Integrate with visualization tools to graphically represent metrics over time.
-   - Create dynamic charts and graphs for real-time simulation monitoring.
+   - Create dynamic charts and graphs for real-time simulation monitoring. -->
 
 <!-- sharding/
 ├── main.go
