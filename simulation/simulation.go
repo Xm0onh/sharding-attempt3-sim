@@ -1,4 +1,4 @@
-// simulation/simulation.go
+// simulation.go
 
 package simulation
 
@@ -16,14 +16,15 @@ import (
 )
 
 type Simulation struct {
-	Config        config.Config
-	Nodes         map[int]*node.Node
-	Shards        map[int]*shard.Shard
-	EventQueue    *event.EventQueue
-	Metrics       *metrics.MetricsCollector
-	CurrentTime   int64
-	NetworkDelays []int64 // For network latency statistics
-	AttackLogs    []string
+	Config                             config.Config
+	Nodes                              map[int]*node.Node
+	Shards                             map[int]*shard.Shard
+	EventQueue                         *event.EventQueue
+	Metrics                            *metrics.MetricsCollector
+	CurrentTime                        int64
+	NetworkDelays                      []int64 // For network latency statistics
+	AttackLogs                         []string
+	currentStepMaliciousShardRotations int
 }
 
 func NewSimulation(cfg config.Config) *Simulation {
@@ -128,9 +129,16 @@ func (sim *Simulation) processEvent(e *event.Event) {
 func (sim *Simulation) handleLotteryEvent(e *event.Event) {
 	n := sim.Nodes[e.NodeID]
 	won, assignedShard := n.ParticipateInLottery(sim.CurrentTime, sim.Config.NumShards)
+	maliciousShardRotation := 0 // Initialize counter for this step
+
 	if won {
 		log := fmt.Sprintf("[Simulation] Node %d won the lottery and assigned to Shard %d at time %d", n.ID, assignedShard, sim.CurrentTime)
 		sim.AttackLogs = append(sim.AttackLogs, log)
+
+		// Check if the node is malicious
+		if !n.IsHonest {
+			maliciousShardRotation = 1
+		}
 
 		// Assign node to the shard using AddNode to ensure proper logging
 		s := sim.Shards[assignedShard]
@@ -156,6 +164,9 @@ func (sim *Simulation) handleLotteryEvent(e *event.Event) {
 		NodeID:    n.ID,
 	}
 	heap.Push(sim.EventQueue, nextEvent)
+
+	// Pass the maliciousShardRotation count to metrics
+	sim.currentStepMaliciousShardRotations += maliciousShardRotation
 }
 
 func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
@@ -181,9 +192,11 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 	// Node creates a block
 	latestBlockID := s.LatestBlockID()
 	blk := selectedNode.CreateBlock(latestBlockID, sim.CurrentTime)
+	blk.Timestamp = sim.CurrentTime // Ensure block timestamp is set
 	s.AddBlock(blk)
 
 	// Node broadcasts the block to peers in the shard
+	shardNodes = sim.getShardNodes(shardID) // Refresh shard nodes after potential changes
 	events := selectedNode.BroadcastBlock(blk, shardNodes, sim.CurrentTime)
 	for _, evt := range events {
 		heap.Push(sim.EventQueue, evt)
@@ -222,9 +235,11 @@ func (sim *Simulation) handleAttackEvent(e *event.Event) {
 }
 
 func (sim *Simulation) handleMetricsEvent() {
-	sim.Metrics.Collect(sim.CurrentTime, sim.Shards, sim.Nodes, sim.NetworkDelays, sim.AttackLogs)
+	// Collect metrics with the count of malicious shard rotations in this step
+	sim.Metrics.Collect(sim.CurrentTime, sim.Shards, sim.Nodes, sim.NetworkDelays, sim.AttackLogs, sim.currentStepMaliciousShardRotations)
 	sim.NetworkDelays = sim.NetworkDelays[:0]
-	sim.AttackLogs = sim.AttackLogs[:0] // Reset attack logs after collecting
+	sim.AttackLogs = sim.AttackLogs[:0]        // Reset attack logs after collecting
+	sim.currentStepMaliciousShardRotations = 0 // Reset rotations count
 
 	// Schedule the next MetricsEvent
 	nextEvent := &event.Event{
@@ -243,3 +258,5 @@ func (sim *Simulation) getShardNodes(shardID int) []*node.Node {
 	}
 	return nodes
 }
+
+// Additional field to track rotations in the current step

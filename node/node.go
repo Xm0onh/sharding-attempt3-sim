@@ -33,21 +33,21 @@ func NewNode(id int) *Node {
 }
 
 func (n *Node) ParticipateInLottery(currentTime int64, numShards int) (bool, int) {
-	win := utils.WinLottery(n.IsHonest, n.Resources)
+	if n.IsAssignedToShard() {
+		return false, -1 // Already assigned to a shard
+	}
+
+	win := utils.WinLottery(n.IsHonest, 1) // Each LotteryEvent represents one attempt
 	if win {
-		if !n.IsAssignedToShard() {
-			// Assign a shard based on the winning ticket
-			n.AssignedShard = utils.AssignShard(n.ID, currentTime, numShards)
-		}
+		// Assign a shard based on the winning ticket
+		n.AssignedShard = utils.AssignShard(n.ID, currentTime, numShards)
 		return true, n.AssignedShard
 	}
 	return false, -1
 }
-
 func (n *Node) IsAssignedToShard() bool {
 	return n.AssignedShard != -1
 }
-
 func (n *Node) CreateBlock(previousBlockID int, currentTime int64) *block.Block {
 	blkID := previousBlockID + 1
 	blk := block.NewBlock(blkID, n.AssignedShard, n.ID, previousBlockID, currentTime)

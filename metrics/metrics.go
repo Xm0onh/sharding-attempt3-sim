@@ -18,14 +18,15 @@ type ShardMetrics struct {
 }
 
 type MetricsData struct {
-	Timestamp            int64
-	BlocksThisStep       int
-	TransactionsThisStep int
-	Throughput           float64
-	AverageNetworkDelay  float64
-	Latency              float64
-	ShardStats           map[int]*ShardMetrics
-	AttackLogs           []string
+	Timestamp                       int64
+	BlocksThisStep                  int
+	TransactionsThisStep            int
+	MaliciousShardRotationsThisStep int // New field
+	Throughput                      float64
+	AverageNetworkDelay             float64
+	Latency                         float64
+	ShardStats                      map[int]*ShardMetrics
+	AttackLogs                      []string
 }
 
 type MetricsCollector struct {
@@ -38,16 +39,17 @@ func NewMetricsCollector() *MetricsCollector {
 	}
 }
 
-// Collect gathers metrics at each time step, including attack logs.
-func (mc *MetricsCollector) Collect(timestamp int64, shards map[int]*shard.Shard, nodes map[int]*node.Node, networkDelays []int64, attackLogs []string) {
+// Collect gathers metrics at each time step, including attack logs and malicious shard rotations.
+func (mc *MetricsCollector) Collect(timestamp int64, shards map[int]*shard.Shard, nodes map[int]*node.Node, networkDelays []int64, attackLogs []string, maliciousShardRotations int) {
 	md := MetricsData{
-		Timestamp:            timestamp,
-		BlocksThisStep:       0,
-		TransactionsThisStep: 0,
-		AverageNetworkDelay:  0,
-		Latency:              0,
-		ShardStats:           make(map[int]*ShardMetrics),
-		AttackLogs:           make([]string, len(attackLogs)),
+		Timestamp:                       timestamp,
+		BlocksThisStep:                  0,
+		TransactionsThisStep:            0,
+		MaliciousShardRotationsThisStep: maliciousShardRotations,
+		AverageNetworkDelay:             0,
+		Latency:                         0,
+		ShardStats:                      make(map[int]*ShardMetrics),
+		AttackLogs:                      make([]string, len(attackLogs)),
 	}
 
 	// Copy attack logs to avoid mutation
@@ -129,6 +131,9 @@ func (mc *MetricsCollector) GenerateReport() error {
 	var preAttackTPS, duringAttackTPS, postAttackTPS float64
 	var preAttackCount, duringAttackCount, postAttackCount int
 
+	// Variables to accumulate malicious shard rotations
+	var preAttackRotations, duringAttackRotations, postAttackRotations int
+
 	// Define attack window
 	attackStart := config.AttackStartTime
 	attackEnd := config.AttackEndTime
@@ -158,18 +163,30 @@ func (mc *MetricsCollector) GenerateReport() error {
 			}
 		}
 
-		// Categorize TPS based on attack window
+		// Write malicious shard rotations, if any
+		if md.MaliciousShardRotationsThisStep > 0 {
+			_, err := file.WriteString(fmt.Sprintf("  Malicious Shard Rotations This Step: %d\n", md.MaliciousShardRotationsThisStep))
+			if err != nil {
+				return fmt.Errorf("failed to write to file: %w", err)
+			}
+		}
+
+		// Categorize TPS and Malicious Rotations based on attack window
 		if md.Timestamp < int64(attackStart) {
 			preAttackTPS += md.Throughput
 			preAttackCount++
+			preAttackRotations += md.MaliciousShardRotationsThisStep
 		} else if md.Timestamp >= int64(attackStart) && md.Timestamp <= int64(attackEnd) {
 			duringAttackTPS += md.Throughput
 			duringAttackCount++
+			duringAttackRotations += md.MaliciousShardRotationsThisStep
 		} else {
 			postAttackTPS += md.Throughput
 			postAttackCount++
+			postAttackRotations += md.MaliciousShardRotationsThisStep
 		}
 
+		// Add a separator for readability
 		_, err = file.WriteString("\n")
 		if err != nil {
 			return fmt.Errorf("failed to write to file: %w", err)
@@ -192,6 +209,11 @@ func (mc *MetricsCollector) GenerateReport() error {
 		avgPostAttackTPS = postAttackTPS / float64(postAttackCount)
 	}
 
+	// Calculate total rotations for each period
+	totalPreAttackRotations := preAttackRotations
+	totalDuringAttackRotations := duringAttackRotations
+	totalPostAttackRotations := postAttackRotations
+
 	// Append summary analysis
 	_, err = file.WriteString("Summary Analysis:\n")
 	if err != nil {
@@ -213,8 +235,24 @@ func (mc *MetricsCollector) GenerateReport() error {
 		return fmt.Errorf("failed to write to file: %w", err)
 	}
 
-	// Analyze the effect of Grinding Attack
-	_, err = file.WriteString("\nEffect of Grinding Attack:\n")
+	// Append rotations summary
+	_, err = file.WriteString(fmt.Sprintf("\nTotal Successful Shard Rotations by Malicious Nodes before Attack (Time < %d): %d\n", attackStart, totalPreAttackRotations))
+	if err != nil {
+		return fmt.Errorf("failed to write to file: %w", err)
+	}
+
+	_, err = file.WriteString(fmt.Sprintf("Total Successful Shard Rotations by Malicious Nodes during Attack (%d <= Time <= %d): %d\n", attackStart, attackEnd, totalDuringAttackRotations))
+	if err != nil {
+		return fmt.Errorf("failed to write to file: %w", err)
+	}
+
+	_, err = file.WriteString(fmt.Sprintf("Total Successful Shard Rotations by Malicious Nodes after Attack (Time > %d): %d\n", attackEnd, totalPostAttackRotations))
+	if err != nil {
+		return fmt.Errorf("failed to write to file: %w", err)
+	}
+
+	// Analyze the effect of Grinding Attack on TPS
+	_, err = file.WriteString("\nEffect of Grinding Attack on TPS:\n")
 	if err != nil {
 		return fmt.Errorf("failed to write to file: %w", err)
 	}
@@ -225,6 +263,20 @@ func (mc *MetricsCollector) GenerateReport() error {
 		_, err = file.WriteString("The Grinding Attack decreased the TPS during the attack period.\n")
 	} else {
 		_, err = file.WriteString("The Grinding Attack had no significant effect on the TPS during the attack period.\n")
+	}
+
+	// Analyze the effect of Grinding Attack on shard rotations
+	_, err = file.WriteString("\nEffect of Grinding Attack on Shard Rotations:\n")
+	if err != nil {
+		return fmt.Errorf("failed to write to file: %w", err)
+	}
+
+	if totalDuringAttackRotations > totalPreAttackRotations {
+		_, err = file.WriteString("The Grinding Attack led to more successful shard rotations by malicious nodes during the attack period.\n")
+	} else if totalDuringAttackRotations < totalPreAttackRotations {
+		_, err = file.WriteString("The Grinding Attack did not increase the number of successful shard rotations by malicious nodes during the attack period.\n")
+	} else {
+		_, err = file.WriteString("The Grinding Attack had no significant effect on the number of successful shard rotations by malicious nodes during the attack period.\n")
 	}
 
 	if err != nil {
