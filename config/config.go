@@ -34,6 +34,6 @@ const (
 	AttackStartTime         = 20
 	AttackEndTime           = 40
 	MaliciousNodeMultiplier = 2   // Multiplier for malicious nodes in lottery attempts
-	BlockProductionInterval = 5   // Shards produce a block every 5 time steps
+	BlockProductionInterval = 6   // Shards produce a block every 5 time steps
 	TransactionsPerBlock    = 100 // Each block contains 100 transactions
 )
