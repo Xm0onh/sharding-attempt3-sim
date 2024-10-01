@@ -1,4 +1,7 @@
-sharding/
+About
+Simulation for the third attempt for sharding design for Autonomys network
+
+<!-- sharding/
 ├── main.go
 ├── config/
 │   └── config.go
@@ -20,4 +23,4 @@ sharding/
 │   └── metrics.go
 ├── utils/
     ├── constants.go
-    └── random.go
+    └── random.go -->
