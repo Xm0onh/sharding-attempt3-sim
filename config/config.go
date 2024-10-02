@@ -39,9 +39,9 @@ const (
 	LotteryWinProbability   = 0.001 // Base probability for winning the lottery
 	AttackStartTime         = 20
 	AttackEndTime           = 60
-	MaliciousNodeMultiplier = 5   // Multiplier for malicious nodes in lottery attempts
-	BlockProductionInterval = 6   // Shards produce a block every 6 time steps
-	TransactionsPerBlock    = 100 // Each block contains 100 transactions
+	MaliciousNodeMultiplier = 1000 // Multiplier for malicious nodes in lottery attempts
+	BlockProductionInterval = 6    // Shards produce a block every 6 time steps
+	TransactionsPerBlock    = 100  // Each block contains 100 transactions
 )
 
 // InitializeAttackSchedule initializes the attack schedule with both start and end times

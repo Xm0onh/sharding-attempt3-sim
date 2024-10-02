@@ -67,25 +67,22 @@ func (sim *Simulation) scheduleInitialEvents() {
 	// Schedule initial ShardBlockProductionEvents for each shard
 	for _, s := range sim.Shards {
 		e := &event.Event{
-			Timestamp: sim.CurrentTime + rand.Int63n(sim.Config.BlockProductionInterval), // Stagger initial block production
+			Timestamp: sim.CurrentTime + rand.Int63n(sim.Config.BlockProductionInterval),
 			Type:      event.ShardBlockProductionEvent,
 			ShardID:   s.ID,
 		}
 		heap.Push(sim.EventQueue, e)
 	}
 
-	// Schedule initial LotteryEvents for all nodes
-	for _, n := range sim.Nodes {
-		e := &event.Event{
-			Timestamp: sim.CurrentTime + rand.Int63n(sim.Config.BlockProductionInterval+1), // Adjusted interval
-			Type:      event.LotteryEvent,
-			NodeID:    n.ID,
-		}
-		heap.Push(sim.EventQueue, e)
+	// Schedule the first LotteryEvent for all nodes
+	e := &event.Event{
+		Timestamp: sim.CurrentTime + sim.Config.BlockProductionInterval,
+		Type:      event.LotteryEvent,
 	}
+	heap.Push(sim.EventQueue, e)
 
 	// Schedule the first MetricsEvent
-	e := &event.Event{
+	e = &event.Event{
 		Timestamp: sim.CurrentTime + sim.Config.TimeStep,
 		Type:      event.MetricsEvent,
 	}
@@ -130,58 +127,58 @@ func (sim *Simulation) processEvent(e *event.Event) {
 }
 
 func (sim *Simulation) handleLotteryEvent(e *event.Event) {
-	n := sim.Nodes[e.NodeID]
-	won, newShardID := n.ParticipateInLottery(sim.CurrentTime, sim.Config.NumShards)
-	maliciousShardRotation := 0
-
-	if won {
-		oldShardID := n.AssignedShard
-		log := fmt.Sprintf("[Simulation] Node %d won the lottery and moved from Shard %d to Shard %d at time %d", n.ID, oldShardID, newShardID, sim.CurrentTime)
-		sim.AttackLogs = append(sim.AttackLogs, log)
-
-		sim.TotalRotations++
-
-		if !n.IsHonest {
-			maliciousShardRotation = 1
-		}
-
-		// Remove node from old shard if it was assigned to one
-		if oldShardID != -1 {
-			oldShard := sim.Shards[oldShardID]
-			oldShard.RemoveNode(n.ID)
-		}
-
-		// Assign node to the new shard
-		newShard := sim.Shards[newShardID]
-		newShard.AddNode(n)
-		n.AssignedShard = newShardID
-
-		// Set the next block producer for the new shard
-		sim.NextBlockProducer[newShardID] = n.ID
-
-		// Node produces a block immediately upon assignment to new shard
-		latestBlockID := newShard.LatestBlockID()
-		blk := n.CreateBlock(latestBlockID, sim.CurrentTime)
-		newShard.AddBlock(blk)
-
-		// Node broadcasts the block to peers in the new shard
-		shardNodes := sim.getShardNodes(newShardID)
-		events := n.BroadcastBlock(blk, shardNodes, sim.CurrentTime)
-		for _, evt := range events {
-			heap.Push(sim.EventQueue, evt)
-			sim.NetworkDelays = append(sim.NetworkDelays, evt.Timestamp-sim.CurrentTime)
+	for _, n := range sim.Nodes {
+		won, newShardID := n.ParticipateInLottery(sim.CurrentTime, sim.Config.NumShards)
+		if won {
+			sim.processLotteryWin(n, newShardID)
 		}
 	}
 
-	// Schedule the next LotteryEvent for this node
+	// Schedule the next LotteryEvent for all nodes
 	nextEvent := &event.Event{
-		Timestamp: sim.CurrentTime + sim.Config.BlockProductionInterval, // Adjusted interval
+		Timestamp: sim.CurrentTime + sim.Config.BlockProductionInterval,
 		Type:      event.LotteryEvent,
-		NodeID:    n.ID,
 	}
 	heap.Push(sim.EventQueue, nextEvent)
+}
 
-	sim.currentStepMaliciousShardRotations += maliciousShardRotation
+func (sim *Simulation) processLotteryWin(n *node.Node, newShardID int) {
+	oldShardID := n.AssignedShard
+	log := fmt.Sprintf("[Simulation] Node %d won the lottery and moved from Shard %d to Shard %d at time %d", n.ID, oldShardID, newShardID, sim.CurrentTime)
+	sim.AttackLogs = append(sim.AttackLogs, log)
+
+	sim.TotalRotations++
+
+	if !n.IsHonest {
+		sim.currentStepMaliciousShardRotations++
+	}
+
+	// Remove node from old shard if it was assigned to one
+	if oldShardID != -1 {
+		oldShard := sim.Shards[oldShardID]
+		oldShard.RemoveNode(n.ID)
+	}
+
+	// Assign node to the new shard
+	newShard := sim.Shards[newShardID]
+	newShard.AddNode(n)
+	n.AssignedShard = newShardID
+
+	// Set the next block producer for the new shard
+	sim.NextBlockProducer[newShardID] = n.ID
+
+	// Node produces a block immediately upon assignment to new shard
+	latestBlockID := newShard.LatestBlockID()
+	blk := n.CreateBlock(latestBlockID, sim.CurrentTime)
+	newShard.AddBlock(blk)
+
+	// Node broadcasts the block to peers in the new shard
+	shardNodes := sim.getShardNodes(newShardID)
+	events := n.BroadcastBlock(blk, shardNodes, sim.CurrentTime)
+	for _, evt := range events {
+		heap.Push(sim.EventQueue, evt)
+		sim.NetworkDelays = append(sim.NetworkDelays, evt.Timestamp-sim.CurrentTime)
+	}
 }
 
 func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
