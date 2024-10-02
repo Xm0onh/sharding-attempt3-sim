@@ -85,6 +85,36 @@ Events are managed using a priority queue to ensure they are processed in the co
 
 This event-driven approach allows the simulation to accurately model the timing and sequence of activities in a sharded blockchain network.
 
+## Running the Simulation
+
+To run the simulation and visualize the results, follow these steps:
+
+1. Run the simulation:
+   ```
+   go run .
+   ```
+   This will execute the simulation and generate a `metrics_report.txt` file with the simulation results.
+
+2. Create a Python virtual environment (optional but recommended):
+   ```
+   python -m venv venv
+   source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
+   ```
+
+3. Install the required Python packages:
+   ```
+   pip install matplotlib pandas
+   ```
+
+4. Run the plotting script:
+   ```
+   python plot.py
+   ```
+   This script will read the `metrics_report.txt` file, process the data, and generate visualizations of the simulation results.
+
+The generated plots will provide visual insights into various aspects of the simulation, such as transaction throughput, block production rates, and the effects of attacks on the network.
+
+
 <!-- ## Extending the Simulation
 
 Enhance the simulation by:
