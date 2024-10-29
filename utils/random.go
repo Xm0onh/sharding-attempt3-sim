@@ -56,3 +56,17 @@ func SimulateNetworkBlockHeaderDelay() float64 {
 
 	return totalDelay
 }
+
+// SimulateNetworkBlockDownloadDelay calculates network delay for block downloads
+func SimulateNetworkBlockDownloadDelay() float64 {
+	networkDelayMean := cfg.MinNetworkDelayMean + rand.Float64()*(cfg.MaxNetworkDelayMean-cfg.MinNetworkDelayMean)
+	networkDelayStd := cfg.MinNetworkDelayStd + rand.Float64()*(cfg.MaxNetworkDelayStd-cfg.MinNetworkDelayStd)
+
+	// Basic delay calculation
+	delay := networkDelayMean + rand.NormFloat64()*networkDelayStd/1000.0
+
+	// Add transmission delay based on block size
+	transmissionDelay := (float64(cfg.BlockSize) * 8.0) / (float64(cfg.NetworkBandwidth) * 1000000.0)
+
+	return delay + transmissionDelay
+}

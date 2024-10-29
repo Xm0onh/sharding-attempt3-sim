@@ -9,6 +9,7 @@ const (
 
 type Config struct {
 	NumNodes                int
+	NumOperators            int
 	NumShards               int
 	SimulationTime          int64
 	TimeStep                int64
@@ -32,6 +33,7 @@ type Config struct {
 	MaxNetworkDelayStd      float64
 	MinGossipFanout         int
 	MaxGossipFanout         int
+	TimeOut                 int64
 }
 
 const (
@@ -40,8 +42,8 @@ const (
 	TimeStep       = 1   // Simulation time step
 
 	// Node parameters
-	NumNodes = 100
-
+	NumNodes     = 100
+	NumOperators = 10
 	// Shard parameters
 	NumShards = 1
 
@@ -70,6 +72,7 @@ const (
 	MaxNetworkDelayStd  = 50.0  // 50ms maximum standard deviation
 	MinGossipFanout     = 4     // Minimum nodes to gossip to
 	MaxGossipFanout     = 8     // Maximum nodes to gossip to
+	TimeOut             = 2000  // Timeout for block download in milliseconds
 )
 
 // InitializeAttackSchedule initializes the attack schedule with both start and end times

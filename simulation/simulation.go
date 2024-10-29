@@ -22,6 +22,7 @@ TODO -
 type Simulation struct {
 	Config                             config.Config
 	Nodes                              map[int]*node.Node
+	Operators                          map[int]*node.Node
 	Shards                             map[int]*shard.Shard
 	EventQueue                         *event.EventQueue
 	Metrics                            *metrics.MetricsCollector
@@ -38,6 +39,7 @@ func NewSimulation(cfg config.Config) *Simulation {
 	sim := &Simulation{
 		Config:                   cfg,
 		Nodes:                    make(map[int]*node.Node),
+		Operators:                make(map[int]*node.Node),
 		Shards:                   make(map[int]*shard.Shard),
 		EventQueue:               event.NewEventQueue(),
 		Metrics:                  metrics.NewMetricsCollector(),
@@ -49,7 +51,9 @@ func NewSimulation(cfg config.Config) *Simulation {
 	}
 
 	sim.initializeNodes()
+	sim.initializeOperators()
 	sim.initializeShards()
+	sim.initializeOperatorsMap()
 	sim.scheduleInitialEvents()
 
 	return sim
@@ -57,8 +61,38 @@ func NewSimulation(cfg config.Config) *Simulation {
 
 func (sim *Simulation) initializeNodes() {
 	for i := 0; i < sim.Config.NumNodes; i++ {
-		n := node.NewNode(i)
+		n := node.NewNode(i, false)
 		sim.Nodes[n.ID] = n
+	}
+}
+
+func (sim *Simulation) initializeOperators() {
+	// Calculate operators per shard to ensure equal distribution
+	operatorsPerShard := sim.Config.NumOperators / sim.Config.NumShards
+
+	// Create operators and assign them to shards sequentially
+	operatorID := 0
+	for shardID := 0; shardID < sim.Config.NumShards; shardID++ {
+		for i := 0; i < operatorsPerShard; i++ {
+			n := node.NewNode(operatorID, true)
+			sim.Operators[n.ID] = n
+			operatorID++
+		}
+	}
+}
+
+func (sim *Simulation) initializeOperatorsMap() {
+	fmt.Println("Initializing operators map")
+	operatorsPerShard := sim.Config.NumOperators / sim.Config.NumShards
+	// Assign operators to shards in groups
+	operatorID := 0
+	for shardID := 0; shardID < sim.Config.NumShards; shardID++ {
+		for i := 0; i < operatorsPerShard; i++ {
+			n := sim.Operators[operatorID]
+			sim.Shards[shardID].AddNode(n)
+			n.AssignedShard = shardID
+			operatorID++
+		}
 	}
 }
 
@@ -166,6 +200,7 @@ func (sim *Simulation) processLotteryWin(n *node.Node, newShardID int) {
 	sim.NextBlockProducer[newShardID][n.ID] = false
 
 }
+
 func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 	shardID := e.ShardID
 	s := sim.Shards[shardID]
@@ -193,17 +228,17 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 
 	if producerNode == nil {
 		// All nodes have produced blocks, skip producing a block
-		fmt.Println("All nodes in shard", shardID, "have produced blocks, skipping block production at time", sim.CurrentTime)
 		log := fmt.Sprintf("All nodes in shard %d have produced blocks, skipping block production at time %d", shardID, sim.CurrentTime)
 		sim.Logs = append(sim.Logs, log)
+
 	} else {
 		latestBlockID := s.LatestBlockID()
 		blk := producerNode.CreateBlock(latestBlockID, sim.CurrentTime)
 		blk.Timestamp = sim.CurrentTime
 
 		// Node broadcasts the block to peers in the shard
-		shardNodes := sim.getShardNodes(shardID) // Get updated shard nodes
-		events := producerNode.BroadcastBlock(blk, shardNodes, sim.CurrentTime)
+		shardOperatorNodes := sim.getShardOperators(shardID)
+		events := producerNode.BroadcastBlock(blk, shardOperatorNodes, sim.CurrentTime)
 
 		var totalDelay float64
 		for _, evt := range events {
@@ -215,6 +250,7 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 		if len(events) > 0 {
 			sim.NetworkDelays[shardID] = append(sim.NetworkDelays[shardID], int64(totalDelay/float64(len(events))))
 		}
+
 		log := fmt.Sprintf("[Block Production] Node %d produced block %d at time %d", producerNode.ID, blk.ID, sim.CurrentTime)
 		sim.Logs = append(sim.Logs, log)
 		sim.NextBlockProducer[shardID][producerNode.ID] = true
@@ -270,6 +306,16 @@ func (sim *Simulation) getNodes() []*node.Node {
 	nodes := []*node.Node{}
 	for _, n := range sim.Nodes {
 		nodes = append(nodes, n)
+	}
+	return nodes
+}
+
+func (sim *Simulation) getShardOperators(shardID int) []*node.Node {
+	nodes := []*node.Node{}
+	for _, n := range sim.Operators {
+		if n.AssignedShard == shardID {
+			nodes = append(nodes, n)
+		}
 	}
 	return nodes
 }

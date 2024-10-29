@@ -12,15 +12,17 @@ import (
 type Node struct {
 	ID            int
 	IsHonest      bool
+	IsOperator    bool
 	AssignedShard int
 	Resources     int
 	Blockchain    map[int]*block.Block
 }
 
-func NewNode(id int) *Node {
+func NewNode(id int, isOperator bool) *Node {
 	n := &Node{
 		ID:            id,
 		IsHonest:      true,
+		IsOperator:    isOperator,
 		AssignedShard: -1, // Unassigned initially
 		Resources:     1,
 		Blockchain:    make(map[int]*block.Block),
@@ -92,6 +94,49 @@ func (n *Node) BroadcastBlockHeader(blk *block.Block, peers []*Node, currentTime
 	return events
 }
 
+// Simulate downloading k blocks from multiple peers
+func (n *Node) DownloadBlocks(k int, peers []*Node, currentTime int64) float64 {
+	blocks := make([]*block.Block, 0)
+	downloadedIDs := make(map[int]bool)
+	totalDelay := 0.0
+	// Try to download k blocks from peers
+	for _, peerNode := range peers {
+		// Skip if we're trying to download from ourselves
+		if peerNode.ID == n.ID {
+			continue
+		}
+
+		// Look through peer's blockchain
+		for blockID, block := range peerNode.Blockchain {
+			// Skip if we already have this block or if we've already downloaded it
+			if _, exists := n.Blockchain[blockID]; exists {
+				continue
+			}
+			if downloadedIDs[blockID] {
+				continue
+			}
+
+			// Simulate network delay for downloading the block
+			delay := utils.SimulateNetworkBlockDownloadDelay()
+			totalDelay += delay
+			// Add block to our downloaded list
+			if !peerNode.IsHonest {
+				blocks = append(blocks, block)
+				totalDelay += float64(config.TimeOut)
+			}
+
+			downloadedIDs[blockID] = true
+
+			// Break if we've downloaded enough blocks
+			if len(blocks) >= k {
+				return totalDelay
+			}
+		}
+	}
+
+	return totalDelay
+}
+
 func (n *Node) ProcessMessage(e *event.Event) {
 	switch msg := e.Data.(type) {
 	case *block.Block:
@@ -102,7 +147,6 @@ func (n *Node) ProcessMessage(e *event.Event) {
 }
 
 func (n *Node) HandleBlock(blk *block.Block) {
-
 	if _, exists := n.Blockchain[blk.ID]; !exists {
 		if !blk.IsMalicious {
 			n.Blockchain[blk.ID] = blk

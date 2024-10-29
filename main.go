@@ -13,6 +13,7 @@ func main() {
 	cfg := config.Config{
 		NumNodes:                config.NumNodes,
 		NumShards:               config.NumShards,
+		NumOperators:            config.NumOperators,
 		SimulationTime:          config.SimulationTime,
 		TimeStep:                config.TimeStep,
 		MaliciousNodeRatio:      config.MaliciousNodeRatio,
@@ -32,6 +33,7 @@ func main() {
 		MaxNetworkDelayStd:      config.MaxNetworkDelayStd,
 		MinGossipFanout:         config.MinGossipFanout,
 		MaxGossipFanout:         config.MaxGossipFanout,
+		TimeOut:                 config.TimeOut,
 	}
 
 	// Create a new simulation instance
