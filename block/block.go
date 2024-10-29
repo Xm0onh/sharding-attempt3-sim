@@ -9,6 +9,24 @@ type Block struct {
 	IsMalicious  bool
 }
 
+type BlockHeader struct {
+	ID         int
+	ShardID    int
+	ProducerID int
+	PreviousID int
+	Timestamp  int64
+}
+
+func NewBlockHeader(id, shardID, producerID, previousID int, timestamp int64) *BlockHeader {
+	return &BlockHeader{
+		ID:         id,
+		ShardID:    shardID,
+		ProducerID: producerID,
+		PreviousID: previousID,
+		Timestamp:  timestamp,
+	}
+}
+
 func NewBlock(id, shardID, producerID, previousHash int, timestamp int64) *Block {
 	return &Block{
 		ID:           id,

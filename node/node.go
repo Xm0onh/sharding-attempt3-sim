@@ -10,12 +10,13 @@ import (
 )
 
 type Node struct {
-	ID            int
-	IsHonest      bool
-	IsOperator    bool
-	AssignedShard int
-	Resources     int
-	Blockchain    map[int]*block.Block
+	ID               int
+	IsHonest         bool
+	IsOperator       bool
+	AssignedShard    int
+	Resources        int
+	Blockchain       map[int]*block.Block
+	BlockHeaderChain map[int]*block.BlockHeader
 }
 
 func NewNode(id int, isOperator bool) *Node {
@@ -60,6 +61,12 @@ func (n *Node) CreateBlock(previousBlockID int, currentTime int64) *block.Block 
 	return blk
 }
 
+func (n *Node) CreateBlockHeader(previousBlockID int, currentTime int64) *block.BlockHeader {
+	blkID := previousBlockID + 1
+	blkHeader := block.NewBlockHeader(blkID, n.AssignedShard, n.ID, previousBlockID, currentTime)
+	return blkHeader
+}
+
 func (n *Node) BroadcastBlock(blk *block.Block, peers []*Node, currentTime int64) []*event.Event {
 	events := make([]*event.Event, 0)
 	for _, peerNode := range peers {
@@ -77,7 +84,7 @@ func (n *Node) BroadcastBlock(blk *block.Block, peers []*Node, currentTime int64
 	return events
 }
 
-func (n *Node) BroadcastBlockHeader(blk *block.Block, peers []*Node, currentTime int64) []*event.Event {
+func (n *Node) BroadcastBlockHeader(blk *block.BlockHeader, peers []*Node, currentTime int64) []*event.Event {
 	events := make([]*event.Event, 0)
 	for _, peerNode := range peers {
 		if peerNode.ID != n.ID {
@@ -141,6 +148,8 @@ func (n *Node) ProcessMessage(e *event.Event) {
 	switch msg := e.Data.(type) {
 	case *block.Block:
 		n.HandleBlock(msg)
+	case *block.BlockHeader:
+		n.HandleBlockHeader(msg)
 	default:
 		// Handle other message types if necessary
 	}
@@ -152,5 +161,11 @@ func (n *Node) HandleBlock(blk *block.Block) {
 			n.Blockchain[blk.ID] = blk
 		}
 		// The shard's state is managed by the simulation
+	}
+}
+
+func (n *Node) HandleBlockHeader(blk *block.BlockHeader) {
+	if _, exists := n.BlockHeaderChain[blk.ID]; !exists {
+		n.BlockHeaderChain[blk.ID] = blk
 	}
 }
