@@ -75,6 +75,23 @@ func (n *Node) BroadcastBlock(blk *block.Block, peers []*Node, currentTime int64
 	return events
 }
 
+func (n *Node) BroadcastBlockHeader(blk *block.Block, peers []*Node, currentTime int64) []*event.Event {
+	events := make([]*event.Event, 0)
+	for _, peerNode := range peers {
+		if peerNode.ID != n.ID {
+			delay := utils.SimulateNetworkBlockHeaderDelay()
+			e := &event.Event{
+				Timestamp: float64(currentTime) + delay,
+				Type:      event.MessageEvent,
+				NodeID:    peerNode.ID,
+				Data:      blk,
+			}
+			events = append(events, e)
+		}
+	}
+	return events
+}
+
 func (n *Node) ProcessMessage(e *event.Event) {
 	switch msg := e.Data.(type) {
 	case *block.Block:

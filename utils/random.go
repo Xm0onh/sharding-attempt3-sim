@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"math"
 	"math/rand"
 	cfg "sharding/config"
 	"time"
@@ -10,17 +11,44 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
+// SimulateNetworkBlockDelay calculates network delay for full block propagation
 func SimulateNetworkBlockDelay() float64 {
-	delay := rand.NormFloat64()*float64(NetworkDelayStd) + float64(NetworkDelayMean)
-	return delay
+	// Calculate number of hops in gossip protocol
+	numHops := math.Ceil(math.Log(float64(cfg.NumNodes)) / math.Log(float64(cfg.GossipFanout)))
+
+	totalDelay := 0.0
+	for i := 0.0; i < numHops; i++ {
+		// Per-hop latency with jitter
+		hopLatency := cfg.NetworkLatencyBase +
+			rand.NormFloat64()*float64(cfg.NetworkDelayStd)/1000.0
+
+		// Transmission delay (size in bits / bandwidth in bps)
+		transmissionDelay := (float64(cfg.BlockSize) * 8.0) /
+			(float64(cfg.NetworkBandwidth) * 1000000.0)
+
+		totalDelay += hopLatency + transmissionDelay
+	}
+
+	return totalDelay * 1000.0 // Convert to milliseconds
 }
 
+// SimulateNetworkBlockHeaderDelay calculates network delay for block header propagation
 func SimulateNetworkBlockHeaderDelay() float64 {
-	// Base delay using normal distribution
-	baseDelay := rand.NormFloat64()*float64(NetworkDelayStd) + float64(NetworkDelayMean)
+	// Calculate number of hops in gossip protocol
+	numHops := math.Ceil(math.Log(float64(cfg.NumNodes)) / math.Log(float64(cfg.GossipFanout)))
 
-	// Scale delay based on block header size (assuming 1KB = 1 time unit scaling factor)
-	sizeScalingFactor := float64(cfg.BlockHeaderSize) / 1000.0
+	totalDelay := 0.0
+	for i := 0.0; i < numHops; i++ {
+		// Per-hop latency with jitter
+		hopLatency := cfg.NetworkLatencyBase +
+			rand.NormFloat64()*float64(cfg.NetworkDelayStd)/1000.0
 
-	return baseDelay * sizeScalingFactor
+		// Transmission delay (size in bits / bandwidth in bps)
+		transmissionDelay := (float64(cfg.BlockHeaderSize) * 8.0) /
+			(float64(cfg.NetworkBandwidth) * 1000000.0)
+
+		totalDelay += hopLatency + transmissionDelay
+	}
+
+	return totalDelay * 1000.0 // Convert to milliseconds
 }

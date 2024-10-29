@@ -204,10 +204,9 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 		log := fmt.Sprintf("All nodes in shard %d have produced blocks, skipping block production at time %d", shardID, sim.CurrentTime)
 		sim.Logs = append(sim.Logs, log)
 	} else {
-		// Node creates a block
 		latestBlockID := s.LatestBlockID()
 		blk := producerNode.CreateBlock(latestBlockID, sim.CurrentTime)
-		blk.Timestamp = sim.CurrentTime // Ensure block timestamp is set
+		blk.Timestamp = sim.CurrentTime
 
 		// Node broadcasts the block to peers in the shard
 		shardNodes := sim.getShardNodes(shardID) // Get updated shard nodes
@@ -228,6 +227,18 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 		// Set the node's bool to true
 		sim.NextBlockProducer[shardID][producerNode.ID] = true
 		// Schedule next ShardBlockProductionEvent for this shard
+
+		// Broadcast block header to all nodes in the whole network
+		events = producerNode.BroadcastBlockHeader(blk, sim.getNodes(), sim.CurrentTime)
+		totalDelay = 0
+		for _, evt := range events {
+			delay := evt.Timestamp - float64(sim.CurrentTime)
+			totalDelay += delay
+		}
+		if len(events) > 0 {
+			sim.NetworkDelays = append(sim.NetworkDelays, int64(totalDelay/float64(len(events))))
+		}
+
 		nextEvent := &event.Event{
 			Timestamp: float64(sim.CurrentTime) + float64(sim.Config.BlockProductionInterval),
 			Type:      event.ShardBlockProductionEvent,
@@ -259,6 +270,14 @@ func (sim *Simulation) getShardNodes(shardID int) []*node.Node {
 		if n.AssignedShard == shardID {
 			nodes = append(nodes, n)
 		}
+	}
+	return nodes
+}
+
+func (sim *Simulation) getNodes() []*node.Node {
+	nodes := []*node.Node{}
+	for _, n := range sim.Nodes {
+		nodes = append(nodes, n)
 	}
 	return nodes
 }
