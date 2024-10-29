@@ -25,6 +25,8 @@ type Config struct {
 	AttackSchedule          map[int64]AttackType
 	BlockSize               int
 	BlockHeaderSize         int
+	ERHeaderSize            int
+	ERBodySize              int
 }
 
 const (
@@ -43,6 +45,8 @@ const (
 	TransactionsPerBlock    = 100   // Each block contains 100 transactions
 	BlockSize               = 10000 // Block size in bytes
 	BlockHeaderSize         = 500   // Block header size in bytes
+	ERHeaderSize            = 1000  // ER header size in bytes
+	ERBodySize              = 33000 // ER body size in bytes
 )
 
 // InitializeAttackSchedule initializes the attack schedule with both start and end times
