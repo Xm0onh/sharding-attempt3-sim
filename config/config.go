@@ -12,8 +12,6 @@ type Config struct {
 	NumShards               int
 	SimulationTime          int64
 	TimeStep                int64
-	NetworkDelayMean        int64
-	NetworkDelayStd         int64
 	AttackStartTime         int64
 	AttackEndTime           int64
 	AttackType              AttackType
@@ -28,7 +26,12 @@ type Config struct {
 	ERHeaderSize            int
 	ERBodySize              int
 	NetworkBandwidth        int64
-	GossipFanout            int
+	MinNetworkDelayMean     float64
+	MaxNetworkDelayMean     float64
+	MinNetworkDelayStd      float64
+	MaxNetworkDelayStd      float64
+	MinGossipFanout         int
+	MaxGossipFanout         int
 }
 
 const (
@@ -59,11 +62,14 @@ const (
 	ERHeaderSize            = 1000  // ER header size in bytes
 	ERBodySize              = 33000 // ER body size in bytes
 
-	// Network parameters
-	NetworkDelayMean = 100 // Updated to milliseconds for more realism
-	NetworkDelayStd  = 50  // Updated standard deviation
-	NetworkBandwidth = 10  // Network bandwidth in Mbps
-	GossipFanout     = 4   // Each node forwards to 4 peers by default
+	// Network simulation parameters
+	NetworkBandwidth    = 10    // Network bandwidth in Mbps
+	MinNetworkDelayMean = 50.0  // 50ms minimum mean delay
+	MaxNetworkDelayMean = 200.0 // 200ms maximum mean delay
+	MinNetworkDelayStd  = 10.0  // 10ms minimum standard deviation
+	MaxNetworkDelayStd  = 50.0  // 50ms maximum standard deviation
+	MinGossipFanout     = 4     // Minimum nodes to gossip to
+	MaxGossipFanout     = 8     // Maximum nodes to gossip to
 )
 
 // InitializeAttackSchedule initializes the attack schedule with both start and end times

@@ -16,6 +16,8 @@ import (
 /*
 TODO -
 ---> Distribute the nodes evenly across shards
+---> DOWNLOAD LATEST K BLOCKS
+---> Broadcast block body to operators within the shard ONLY
 */
 type Simulation struct {
 	Config                             config.Config
@@ -24,24 +26,26 @@ type Simulation struct {
 	EventQueue                         *event.EventQueue
 	Metrics                            *metrics.MetricsCollector
 	CurrentTime                        int64
-	NetworkDelays                      []int64 // For network latency statistics
+	NetworkDelays                      map[int][]int64
+	NetworkBlockHeaderDelays           map[int][]int64
 	Logs                               []string
 	currentStepMaliciousShardRotations int
 	TotalRotations                     int
-	NextBlockProducer                  map[int]map[int]bool // Map[shardID][nodeID]bool
+	NextBlockProducer                  map[int]map[int]bool
 }
 
 func NewSimulation(cfg config.Config) *Simulation {
 	sim := &Simulation{
-		Config:            cfg,
-		Nodes:             make(map[int]*node.Node),
-		Shards:            make(map[int]*shard.Shard),
-		EventQueue:        event.NewEventQueue(),
-		Metrics:           metrics.NewMetricsCollector(),
-		CurrentTime:       0,
-		NetworkDelays:     make([]int64, 0, 1000),
-		Logs:              make([]string, 0),
-		NextBlockProducer: make(map[int]map[int]bool),
+		Config:                   cfg,
+		Nodes:                    make(map[int]*node.Node),
+		Shards:                   make(map[int]*shard.Shard),
+		EventQueue:               event.NewEventQueue(),
+		Metrics:                  metrics.NewMetricsCollector(),
+		CurrentTime:              0,
+		NetworkDelays:            make(map[int][]int64),
+		NetworkBlockHeaderDelays: make(map[int][]int64),
+		Logs:                     make([]string, 0),
+		NextBlockProducer:        make(map[int]map[int]bool),
 	}
 
 	sim.initializeNodes()
@@ -96,15 +100,10 @@ func (sim *Simulation) Run() {
 		e := heap.Pop(sim.EventQueue).(*event.Event)
 		sim.CurrentTime = int64(e.Timestamp)
 		sim.processEvent(e)
-		// 0 -> LotteryEvent
-		// 1 -> MessageEvent
-		// 2 -> MetricsEvent
-		// 3 -> ShardBlockProductionEvent
 	}
 	// Network delay for each shard
 
 	fmt.Println("Network delay for shard ->", sim.NetworkDelays)
-
 	sim.handleMetricsEvent()
 
 }
@@ -166,12 +165,6 @@ func (sim *Simulation) processLotteryWin(n *node.Node, newShardID int) {
 	n.AssignedShard = newShardID
 	sim.NextBlockProducer[newShardID][n.ID] = false
 
-	//TODO - DOWNLOAD LATEST K BLOCKS
-	/*
-		TODO -
-		- Broadcast block header to all the nodes
-		- Broadcast block body to operators within the shard ONLY
-	*/
 }
 func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 	shardID := e.ShardID
@@ -211,7 +204,7 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 		// Node broadcasts the block to peers in the shard
 		shardNodes := sim.getShardNodes(shardID) // Get updated shard nodes
 		events := producerNode.BroadcastBlock(blk, shardNodes, sim.CurrentTime)
-		fmt.Println("Number of events ->", len(events))
+
 		var totalDelay float64
 		for _, evt := range events {
 			heap.Push(sim.EventQueue, evt)
@@ -220,13 +213,11 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 			totalDelay += delay
 		}
 		if len(events) > 0 {
-			sim.NetworkDelays = append(sim.NetworkDelays, int64(totalDelay/float64(len(events))))
+			sim.NetworkDelays[shardID] = append(sim.NetworkDelays[shardID], int64(totalDelay/float64(len(events))))
 		}
 		log := fmt.Sprintf("[Block Production] Node %d produced block %d at time %d", producerNode.ID, blk.ID, sim.CurrentTime)
 		sim.Logs = append(sim.Logs, log)
-		// Set the node's bool to true
 		sim.NextBlockProducer[shardID][producerNode.ID] = true
-		// Schedule next ShardBlockProductionEvent for this shard
 
 		// Broadcast block header to all nodes in the whole network
 		events = producerNode.BroadcastBlockHeader(blk, sim.getNodes(), sim.CurrentTime)
@@ -236,9 +227,10 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 			totalDelay += delay
 		}
 		if len(events) > 0 {
-			sim.NetworkDelays = append(sim.NetworkDelays, int64(totalDelay/float64(len(events))))
+			sim.NetworkBlockHeaderDelays[shardID] = append(sim.NetworkBlockHeaderDelays[shardID], int64(totalDelay/float64(len(events))))
 		}
 
+		// Schedule next ShardBlockProductionEvent for this shard
 		nextEvent := &event.Event{
 			Timestamp: float64(sim.CurrentTime) + float64(sim.Config.BlockProductionInterval),
 			Type:      event.ShardBlockProductionEvent,
@@ -261,7 +253,7 @@ func (sim *Simulation) handleMessageEvent(e *event.Event) {
 }
 
 func (sim *Simulation) handleMetricsEvent() {
-	sim.Metrics.Collect(sim.CurrentTime, sim.Shards, sim.Nodes, sim.NetworkDelays, sim.Logs, sim.currentStepMaliciousShardRotations)
+	// sim.Metrics.Collect(sim.CurrentTime, sim.Shards, sim.Nodes, sim.NetworkDelays, sim.Logs, sim.currentStepMaliciousShardRotations)
 }
 
 func (sim *Simulation) getShardNodes(shardID int) []*node.Node {
