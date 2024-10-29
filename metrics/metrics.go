@@ -172,7 +172,7 @@ func (mc *MetricsCollector) GenerateReport() error {
 }
 
 // Helper function to calculate percentage
-func calculatePercentage(part, total int) float64 {
+func CalculatePercentage(part, total int) float64 {
 	if total == 0 {
 		return 0
 	}
@@ -202,5 +202,3 @@ func writeTimeWindowMetrics(w io.Writer, title string, metrics TimeWindowMetrics
 	fmt.Fprintf(w, "  Average Block Header Delay: %.2fms\n", metrics.NetworkMetrics.AverageHeaderDelay)
 	fmt.Fprintf(w, "  Average Block Download Delay: %.2fms\n\n", metrics.NetworkMetrics.AverageDownloadDelay)
 }
-
-// ... continued in next message ...
