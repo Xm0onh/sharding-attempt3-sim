@@ -14,7 +14,7 @@ type Node struct {
 	IsHonest      bool
 	AssignedShard int
 	Resources     int
-	KnownBlocks   map[int]*block.Block
+	Blockchain    map[int]*block.Block
 }
 
 func NewNode(id int) *Node {
@@ -23,7 +23,7 @@ func NewNode(id int) *Node {
 		IsHonest:      true,
 		AssignedShard: -1, // Unassigned initially
 		Resources:     1,
-		KnownBlocks:   make(map[int]*block.Block),
+		Blockchain:    make(map[int]*block.Block),
 	}
 
 	if rand.Float64() < config.MaliciousNodeRatio {
@@ -103,9 +103,9 @@ func (n *Node) ProcessMessage(e *event.Event) {
 
 func (n *Node) HandleBlock(blk *block.Block) {
 
-	if _, exists := n.KnownBlocks[blk.ID]; !exists {
+	if _, exists := n.Blockchain[blk.ID]; !exists {
 		if !blk.IsMalicious {
-			n.KnownBlocks[blk.ID] = blk
+			n.Blockchain[blk.ID] = blk
 		}
 		// The shard's state is managed by the simulation
 	}
