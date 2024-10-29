@@ -159,7 +159,7 @@ func (mc *MetricsCollector) GenerateReport() error {
 	}
 	defer f.Close()
 
-	fmt.Fprintln(f, "=== Simulation Report ===\n")
+	fmt.Fprintln(f, "=== Simulation Report ===")
 	writeTimeWindowMetrics(f, "Simulation Metrics", mc.CurrentMetrics)
 
 	// Write logs
