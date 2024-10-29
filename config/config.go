@@ -9,7 +9,6 @@ const (
 
 type Config struct {
 	NumNodes                int
-	Bandwidth               int64
 	NumShards               int
 	SimulationTime          int64
 	TimeStep                int64
@@ -29,32 +28,42 @@ type Config struct {
 	ERHeaderSize            int
 	ERBodySize              int
 	NetworkBandwidth        int64
-	NetworkLatencyBase      float64
 	GossipFanout            int
 }
 
 const (
-	NumNodes                = 100
-	Bandwidth               = 10 // Bandwidth in Mbp/s
-	NumShards               = 1
-	SimulationTime          = 120  // Total simulation time units
-	TimeStep                = 1    // Simulation time step
-	NetworkDelayMean        = 100  // Updated to milliseconds for more realism
-	NetworkDelayStd         = 50   // Updated standard deviation
-	MaliciousNodeRatio      = 0.1  // 10% of nodes are malicious
-	LotteryWinProbability   = 0.01 // Base probability for winning the lottery
+	// Simulation parameters
+	SimulationTime = 120 // Total simulation time units
+	TimeStep       = 1   // Simulation time step
+
+	// Node parameters
+	NumNodes = 100
+
+	// Shard parameters
+	NumShards = 1
+
+	// Attack parameters
+	MaliciousNodeRatio      = 0.1 // 10% of nodes are malicious
 	AttackStartTime         = 20
 	AttackEndTime           = 60
-	MaliciousNodeMultiplier = 1000  // Multiplier for malicious nodes in lottery attempts
+	MaliciousNodeMultiplier = 1000 // Multiplier for malicious nodes in lottery attempts
+
+	// Lottery parameters
+	LotteryWinProbability = 0.01 // Base probability for winning the lottery
+
+	// Block parameters
 	BlockProductionInterval = 6     // Shards produce a block every 6 time steps
 	TransactionsPerBlock    = 100   // Each block contains 100 transactions
 	BlockSize               = 10000 // Block size in bytes
 	BlockHeaderSize         = 1000  // Increased to more realistic size in bytes
 	ERHeaderSize            = 1000  // ER header size in bytes
 	ERBodySize              = 33000 // ER body size in bytes
-	NetworkBandwidth        = 10    // Network bandwidth in Mbps
-	NetworkLatencyBase      = 0.1   // Base latency in seconds
-	GossipFanout            = 4     // Each node forwards to 4 peers by default
+
+	// Network parameters
+	NetworkDelayMean = 100 // Updated to milliseconds for more realism
+	NetworkDelayStd  = 50  // Updated standard deviation
+	NetworkBandwidth = 10  // Network bandwidth in Mbps
+	GossipFanout     = 4   // Each node forwards to 4 peers by default
 )
 
 // InitializeAttackSchedule initializes the attack schedule with both start and end times

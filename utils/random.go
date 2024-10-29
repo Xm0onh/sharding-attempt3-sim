@@ -14,7 +14,7 @@ func SimulateNetworkBlockDelay() float64 {
 	totalDelay := 0.0
 	for i := 0.0; i < numHops; i++ {
 		// Per-hop latency with jitter
-		hopLatency := cfg.NetworkLatencyBase +
+		hopLatency := cfg.NetworkDelayMean +
 			rand.NormFloat64()*float64(cfg.NetworkDelayStd)/1000.0
 
 		// Transmission delay (size in bits / bandwidth in bps)
@@ -23,7 +23,7 @@ func SimulateNetworkBlockDelay() float64 {
 
 		totalDelay += hopLatency + transmissionDelay
 	}
-	return totalDelay * 1000.0 // Convert to milliseconds
+	return totalDelay
 }
 
 // SimulateNetworkBlockHeaderDelay calculates network delay for block header propagation
@@ -34,7 +34,7 @@ func SimulateNetworkBlockHeaderDelay() float64 {
 	totalDelay := 0.0
 	for i := 0.0; i < numHops; i++ {
 		// Per-hop latency with jitter
-		hopLatency := cfg.NetworkLatencyBase +
+		hopLatency := cfg.NetworkDelayMean +
 			rand.NormFloat64()*float64(cfg.NetworkDelayStd)/1000.0
 
 		// Transmission delay (size in bits / bandwidth in bps)
@@ -44,5 +44,5 @@ func SimulateNetworkBlockHeaderDelay() float64 {
 		totalDelay += hopLatency + transmissionDelay
 	}
 
-	return totalDelay * 1000.0 // Convert to milliseconds
+	return totalDelay
 }
