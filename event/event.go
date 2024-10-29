@@ -9,8 +9,8 @@ type EventType int
 const (
 	LotteryEvent EventType = iota
 	MessageEvent
-	MetricsEvent
 	ShardBlockProductionEvent
+	MetricsEvent
 )
 
 type Event struct {

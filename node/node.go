@@ -21,14 +21,15 @@ type Node struct {
 
 func NewNode(id int, isOperator bool) *Node {
 	n := &Node{
-		ID:            id,
-		IsHonest:      true,
-		IsOperator:    isOperator,
-		AssignedShard: -1, // Unassigned initially
-		Resources:     1,
-		Blockchain:    make(map[int]*block.Block),
+		ID:               id,
+		IsHonest:         true,
+		IsOperator:       isOperator,
+		AssignedShard:    -1, // Unassigned initially
+		Resources:        1,
+		Blockchain:       make(map[int]*block.Block),
+		BlockHeaderChain: make(map[int]*block.BlockHeader),
 	}
-
+	n.BlockHeaderChain[0] = &block.BlockHeader{ID: 0}
 	if rand.Float64() < config.MaliciousNodeRatio {
 		n.IsHonest = false
 	}
@@ -67,13 +68,14 @@ func (n *Node) CreateBlockHeader(previousBlockID int, currentTime int64) *block.
 	return blkHeader
 }
 
-func (n *Node) BroadcastBlock(blk *block.Block, peers []*Node, currentTime int64) []*event.Event {
+func (n *Node) BroadcastBlock(blk *block.Block, peers []*Node, currentTime int64) ([]*event.Event, float64) {
 	events := make([]*event.Event, 0)
+	delay := 0.0
 	for _, peerNode := range peers {
 		if peerNode.ID != n.ID {
-			delay := utils.SimulateNetworkBlockDelay()
+			delay += utils.SimulateNetworkBlockDelay()
 			e := &event.Event{
-				Timestamp: float64(currentTime) + delay,
+				Timestamp: float64(currentTime),
 				Type:      event.MessageEvent,
 				NodeID:    peerNode.ID,
 				Data:      blk,
@@ -81,14 +83,16 @@ func (n *Node) BroadcastBlock(blk *block.Block, peers []*Node, currentTime int64
 			events = append(events, e)
 		}
 	}
-	return events
+	return events, delay
 }
 
-func (n *Node) BroadcastBlockHeader(blk *block.BlockHeader, peers []*Node, currentTime int64) []*event.Event {
+func (n *Node) BroadcastBlockHeader(blk *block.BlockHeader, peers []*Node, currentTime int64) ([]*event.Event, float64) {
 	events := make([]*event.Event, 0)
+	delay := 0.0
 	for _, peerNode := range peers {
 		if peerNode.ID != n.ID {
-			delay := utils.SimulateNetworkBlockHeaderDelay()
+			peerNode.HandleBlockHeader(blk)
+			delay += utils.SimulateNetworkBlockHeaderDelay()
 			e := &event.Event{
 				Timestamp: float64(currentTime) + delay,
 				Type:      event.MessageEvent,
@@ -98,7 +102,7 @@ func (n *Node) BroadcastBlockHeader(blk *block.BlockHeader, peers []*Node, curre
 			events = append(events, e)
 		}
 	}
-	return events
+	return events, delay
 }
 
 // Simulate downloading k blocks from multiple peers
@@ -148,6 +152,7 @@ func (n *Node) ProcessMessage(e *event.Event) {
 	switch msg := e.Data.(type) {
 	case *block.Block:
 		n.HandleBlock(msg)
+
 	case *block.BlockHeader:
 		n.HandleBlockHeader(msg)
 	default:
@@ -165,7 +170,17 @@ func (n *Node) HandleBlock(blk *block.Block) {
 }
 
 func (n *Node) HandleBlockHeader(blk *block.BlockHeader) {
+	// fmt.Println("Handling block header for node", n.ID, "Block ID", blk.ID, "from", blk.ProducerID)
 	if _, exists := n.BlockHeaderChain[blk.ID]; !exists {
 		n.BlockHeaderChain[blk.ID] = blk
 	}
+}
+
+func (n *Node) LatestBlockHeaderID() int {
+	if len(n.BlockHeaderChain) == 0 {
+		n.BlockHeaderChain[0] = &block.BlockHeader{ID: 0}
+		return 0
+	}
+	// Return the ID of the last block header
+	return n.BlockHeaderChain[len(n.BlockHeaderChain)-1].ID
 }

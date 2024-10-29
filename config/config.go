@@ -43,7 +43,7 @@ const (
 
 	// Node parameters
 	NumNodes     = 100
-	NumOperators = 10
+	NumOperators = 1
 	// Shard parameters
 	NumShards = 1
 
@@ -54,7 +54,7 @@ const (
 	MaliciousNodeMultiplier = 1000 // Multiplier for malicious nodes in lottery attempts
 
 	// Lottery parameters
-	LotteryWinProbability = 0.01 // Base probability for winning the lottery
+	LotteryWinProbability = 1 // Base probability for winning the lottery
 
 	// Block parameters
 	BlockProductionInterval = 6     // Shards produce a block every 6 time steps

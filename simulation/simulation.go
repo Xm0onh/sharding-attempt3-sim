@@ -132,16 +132,15 @@ func (sim *Simulation) scheduleInitialEvents() {
 }
 
 func (sim *Simulation) Run() {
-	for !sim.EventQueue.IsEmpty() && sim.CurrentTime <= (sim.Config.SimulationTime+sim.Config.BlockProductionInterval) {
+	for !sim.EventQueue.IsEmpty() && sim.CurrentTime < 1000*sim.Config.SimulationTime {
 		e := heap.Pop(sim.EventQueue).(*event.Event)
 		sim.CurrentTime = int64(e.Timestamp)
 		sim.processEvent(e)
 	}
+
 	// Network delay for each shard
-
-	fmt.Println("Network delay for shard ->", sim.NetworkBlockBroadcastDelays)
+	fmt.Println("\nFinal network delays for shards:", sim.NetworkBlockBroadcastDelays)
 	sim.handleMetricsEvent()
-
 }
 
 func (sim *Simulation) processEvent(e *event.Event) {
@@ -170,43 +169,45 @@ func (sim *Simulation) handleLotteryEvent() {
 	}
 
 	// Schedule the next LotteryEvent for all nodes
-	nextEvent := &event.Event{
-		Timestamp: float64(sim.CurrentTime) + float64(sim.Config.BlockProductionInterval),
-		Type:      event.LotteryEvent,
+	if sim.CurrentTime+sim.Config.BlockProductionInterval < sim.Config.SimulationTime {
+		nextEvent := &event.Event{
+			Timestamp: float64(sim.CurrentTime) + float64(sim.Config.BlockProductionInterval),
+			Type:      event.LotteryEvent,
+		}
+		heap.Push(sim.EventQueue, nextEvent)
 	}
-	heap.Push(sim.EventQueue, nextEvent)
 }
 
 func (sim *Simulation) processLotteryWin(n *node.Node, newShardID int) {
-	oldShardID := n.AssignedShard
-	log := fmt.Sprintf("[Lottery] Node %d won the lottery and moved from Shard %d to Shard %d at time %d", n.ID, oldShardID, newShardID, sim.CurrentTime)
-	sim.Logs = append(sim.Logs, log)
-	sim.TotalRotations++
+	if sim.CurrentTime < sim.Config.SimulationTime+sim.Config.BlockProductionInterval {
+		oldShardID := n.AssignedShard
+		log := fmt.Sprintf("[Lottery] Node %d won the lottery and moved from Shard %d to Shard %d at time %d", n.ID, oldShardID, newShardID, sim.CurrentTime)
+		sim.Logs = append(sim.Logs, log)
+		sim.TotalRotations++
 
-	if !n.IsHonest {
-		sim.currentStepMaliciousShardRotations++
+		if !n.IsHonest {
+			sim.currentStepMaliciousShardRotations++
+		}
+
+		// Remove node from old shard if it was assigned to one
+		if oldShardID != -1 {
+			oldShard := sim.Shards[oldShardID]
+			oldShard.RemoveNode(n.ID)
+			delete(sim.NextBlockProducer[oldShardID], n.ID)
+
+		}
+
+		// Assign node to the new shard
+		newShard := sim.Shards[newShardID]
+		newShard.AddNode(n)
+		n.AssignedShard = newShardID
+		sim.NextBlockProducer[newShardID][n.ID] = false
 	}
-
-	// Remove node from old shard if it was assigned to one
-	if oldShardID != -1 {
-		oldShard := sim.Shards[oldShardID]
-		oldShard.RemoveNode(n.ID)
-		delete(sim.NextBlockProducer[oldShardID], n.ID)
-
-	}
-
-	// Assign node to the new shard
-	newShard := sim.Shards[newShardID]
-	newShard.AddNode(n)
-	n.AssignedShard = newShardID
-	sim.NextBlockProducer[newShardID][n.ID] = false
 
 }
 
 func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 	shardID := e.ShardID
-	s := sim.Shards[shardID]
-
 	if len(sim.NextBlockProducer[shardID]) == 0 {
 		// No nodes assigned to this shard
 		// Schedule next ShardBlockProductionEvent
@@ -234,27 +235,23 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 		sim.Logs = append(sim.Logs, log)
 
 	} else {
-		latestBlockID := s.LatestBlockID()
+		// BLock Header Chain
+		fmt.Println("Block header size,", len(producerNode.BlockHeaderChain))
+		latestBlockID := producerNode.LatestBlockHeaderID()
 		blk := producerNode.CreateBlock(latestBlockID, sim.CurrentTime)
 		blkHeader := producerNode.CreateBlockHeader(latestBlockID, sim.CurrentTime)
 		// The proposer must add the block to its blockchain
+		blkHeader.Timestamp = sim.CurrentTime
+		blk.Timestamp = blkHeader.Timestamp
+
 		producerNode.HandleBlock(blk)
-
-		blk.Timestamp = sim.CurrentTime
-
+		producerNode.HandleBlockHeader(blkHeader)
 		// Node broadcasts the block to peers in the shard
 		shardOperatorNodes := sim.getShardOperators(shardID)
-		events := producerNode.BroadcastBlock(blk, shardOperatorNodes, sim.CurrentTime)
+		events, delay := producerNode.BroadcastBlock(blk, shardOperatorNodes, sim.CurrentTime)
 
-		var totalDelay float64
-		for _, evt := range events {
-			heap.Push(sim.EventQueue, evt)
-			// AVERAGE DELAY
-			delay := evt.Timestamp - float64(sim.CurrentTime)
-			totalDelay += delay
-		}
 		if len(events) > 0 {
-			sim.NetworkBlockBroadcastDelays[shardID] = append(sim.NetworkBlockBroadcastDelays[shardID], int64(totalDelay/float64(len(events))))
+			sim.NetworkBlockBroadcastDelays[shardID] = append(sim.NetworkBlockBroadcastDelays[shardID], int64(delay/float64(len(events))))
 		}
 
 		log := fmt.Sprintf("[Block Production] Node %d produced block %d at time %d", producerNode.ID, blk.ID, sim.CurrentTime)
@@ -262,23 +259,21 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 		sim.NextBlockProducer[shardID][producerNode.ID] = true
 
 		// Broadcast block header to all nodes in the whole network
-		events = producerNode.BroadcastBlockHeader(blkHeader, sim.getNodes(), sim.CurrentTime)
-		totalDelay = 0
-		for _, evt := range events {
-			delay := evt.Timestamp - float64(sim.CurrentTime)
-			totalDelay += delay
-		}
+		events, delay = producerNode.BroadcastBlockHeader(blkHeader, sim.getNodes(), sim.CurrentTime)
+
 		if len(events) > 0 {
-			sim.NetworkBlockHeaderDelays[shardID] = append(sim.NetworkBlockHeaderDelays[shardID], int64(totalDelay/float64(len(events))))
+			sim.NetworkBlockHeaderDelays[shardID] = append(sim.NetworkBlockHeaderDelays[shardID], int64(delay/float64(len(events))))
 		}
 
 		// Schedule next ShardBlockProductionEvent for this shard
-		nextEvent := &event.Event{
-			Timestamp: float64(sim.CurrentTime) + float64(sim.Config.BlockProductionInterval),
-			Type:      event.ShardBlockProductionEvent,
-			ShardID:   shardID,
+		if sim.CurrentTime < sim.Config.SimulationTime {
+			nextEvent := &event.Event{
+				Timestamp: float64(sim.CurrentTime) + float64(sim.Config.BlockProductionInterval),
+				Type:      event.ShardBlockProductionEvent,
+				ShardID:   shardID,
+			}
+			heap.Push(sim.EventQueue, nextEvent)
 		}
-		heap.Push(sim.EventQueue, nextEvent)
 	}
 
 }
@@ -298,15 +293,15 @@ func (sim *Simulation) handleMetricsEvent() {
 	// sim.Metrics.Collect(sim.CurrentTime, sim.Shards, sim.Nodes, sim.NetworkBlockBroadcastDelays, sim.Logs, sim.currentStepMaliciousShardRotations)
 }
 
-func (sim *Simulation) getShardNodes(shardID int) []*node.Node {
-	nodes := []*node.Node{}
-	for _, n := range sim.Nodes {
-		if n.AssignedShard == shardID {
-			nodes = append(nodes, n)
-		}
-	}
-	return nodes
-}
+// func (sim *Simulation) getShardNodes(shardID int) []*node.Node {
+// 	nodes := []*node.Node{}
+// 	for _, n := range sim.Nodes {
+// 		if n.AssignedShard == shardID {
+// 			nodes = append(nodes, n)
+// 		}
+// 	}
+// 	return nodes
+// }
 
 func (sim *Simulation) getNodes() []*node.Node {
 	nodes := []*node.Node{}
