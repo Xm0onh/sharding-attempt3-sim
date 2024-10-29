@@ -34,6 +34,7 @@ type Config struct {
 	MinGossipFanout         int
 	MaxGossipFanout         int
 	TimeOut                 int64
+	NumBlocksToDownload     int
 }
 
 const (
@@ -73,6 +74,9 @@ const (
 	MinGossipFanout     = 4     // Minimum nodes to gossip to
 	MaxGossipFanout     = 8     // Maximum nodes to gossip to
 	TimeOut             = 2000  // Timeout for block download in milliseconds
+
+	// Download parameters
+	NumBlocksToDownload = 10
 )
 
 // InitializeAttackSchedule initializes the attack schedule with both start and end times

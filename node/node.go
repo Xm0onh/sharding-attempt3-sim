@@ -105,49 +105,6 @@ func (n *Node) BroadcastBlockHeader(blk *block.BlockHeader, peers []*Node, curre
 	return events, delay
 }
 
-// Simulate downloading k blocks from multiple peers
-func (n *Node) DownloadBlocks(k int, peers []*Node, currentTime int64) float64 {
-	blocks := make([]*block.Block, 0)
-	downloadedIDs := make(map[int]bool)
-	totalDelay := 0.0
-	// Try to download k blocks from peers
-	for _, peerNode := range peers {
-		// Skip if we're trying to download from ourselves
-		if peerNode.ID == n.ID {
-			continue
-		}
-
-		// Look through peer's blockchain
-		for blockID, block := range peerNode.Blockchain {
-			// Skip if we already have this block or if we've already downloaded it
-			if _, exists := n.Blockchain[blockID]; exists {
-				continue
-			}
-			if downloadedIDs[blockID] {
-				continue
-			}
-
-			// Simulate network delay for downloading the block
-			delay := utils.SimulateNetworkBlockDownloadDelay()
-			totalDelay += delay
-			// Add block to our downloaded list
-			if !peerNode.IsHonest {
-				blocks = append(blocks, block)
-				totalDelay += float64(config.TimeOut)
-			}
-
-			downloadedIDs[blockID] = true
-
-			// Break if we've downloaded enough blocks
-			if len(blocks) >= k {
-				return totalDelay
-			}
-		}
-	}
-
-	return totalDelay
-}
-
 func (n *Node) ProcessMessage(e *event.Event) {
 	switch msg := e.Data.(type) {
 	case *block.Block:
@@ -183,4 +140,44 @@ func (n *Node) LatestBlockHeaderID() int {
 	}
 	// Return the ID of the last block header
 	return n.BlockHeaderChain[len(n.BlockHeaderChain)-1].ID
+}
+
+func (n *Node) DownloadLatestKBlocks(peers []*Node, currentTime int64) float64 {
+	// Get our latest block header ID
+	latestID := n.LatestBlockHeaderID()
+
+	// Calculate the range of blocks we need to download
+	startID := max(0, latestID-config.NumBlocksToDownload)
+
+	totalDelay := 0.0
+	downloadedBlocks := make(map[int]bool)
+
+	// Try to download blocks from peers
+	for blockID := latestID; blockID > startID; blockID-- {
+		if _, exists := n.Blockchain[blockID]; exists {
+			continue // Skip if we already have this block
+		}
+
+		for _, peer := range peers {
+			if block, exists := peer.Blockchain[blockID]; exists {
+				if !downloadedBlocks[blockID] {
+					delay := utils.SimulateNetworkBlockDownloadDelay()
+					if !peer.IsHonest {
+						delay += float64(config.TimeOut)
+					}
+					totalDelay += delay
+
+					// Only store honest blocks
+					if !block.IsMalicious {
+						n.Blockchain[blockID] = block
+					}
+
+					downloadedBlocks[blockID] = true
+					break // Move to next block once we've downloaded this one
+				}
+			}
+		}
+	}
+
+	return totalDelay
 }

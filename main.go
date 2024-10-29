@@ -34,6 +34,7 @@ func main() {
 		MinGossipFanout:         config.MinGossipFanout,
 		MaxGossipFanout:         config.MaxGossipFanout,
 		TimeOut:                 config.TimeOut,
+		NumBlocksToDownload:     config.NumBlocksToDownload,
 	}
 
 	// Create a new simulation instance

@@ -236,8 +236,22 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 
 	} else {
 		// BLock Header Chain
-		fmt.Println("Block header size,", len(producerNode.BlockHeaderChain))
 		latestBlockID := producerNode.LatestBlockHeaderID()
+		/*
+			Step1: Pull out the proposers of k latest blocks
+			Step2: Create an array of proposers
+			Step3: Add all of the operators within the shard to the array
+			Step4: Call the download latest k blocks function from the array of proposers and oprators
+			Step6: Capture the time that it took to download
+		*/
+
+		proposers := sim.getProposers(latestBlockID)
+		proposers = append(proposers, sim.getShardOperators(shardID)...)
+		downloadTime := producerNode.DownloadLatestKBlocks(proposers, sim.CurrentTime)
+		sim.NetworkBlockDownloadDelays[shardID] = append(sim.NetworkBlockDownloadDelays[shardID], int64(downloadTime))
+
+		fmt.Println("Download time for node", producerNode.ID, "is", downloadTime)
+
 		blk := producerNode.CreateBlock(latestBlockID, sim.CurrentTime)
 		blkHeader := producerNode.CreateBlockHeader(latestBlockID, sim.CurrentTime)
 		// The proposer must add the block to its blockchain
@@ -293,15 +307,15 @@ func (sim *Simulation) handleMetricsEvent() {
 	// sim.Metrics.Collect(sim.CurrentTime, sim.Shards, sim.Nodes, sim.NetworkBlockBroadcastDelays, sim.Logs, sim.currentStepMaliciousShardRotations)
 }
 
-// func (sim *Simulation) getShardNodes(shardID int) []*node.Node {
-// 	nodes := []*node.Node{}
-// 	for _, n := range sim.Nodes {
-// 		if n.AssignedShard == shardID {
-// 			nodes = append(nodes, n)
-// 		}
-// 	}
-// 	return nodes
-// }
+func (sim *Simulation) getShardNodes(shardID int) []*node.Node {
+	nodes := []*node.Node{}
+	for _, n := range sim.Nodes {
+		if n.AssignedShard == shardID {
+			nodes = append(nodes, n)
+		}
+	}
+	return nodes
+}
 
 func (sim *Simulation) getNodes() []*node.Node {
 	nodes := []*node.Node{}
@@ -319,6 +333,23 @@ func (sim *Simulation) getShardOperators(shardID int) []*node.Node {
 		}
 	}
 	return nodes
+}
+
+func (sim *Simulation) getProposers(latestBlockID int) []*node.Node {
+	proposers := make([]*node.Node, 0)
+	// Get the last k block headers
+	for i := latestBlockID; i > max(0, latestBlockID-config.NumBlocksToDownload); i-- {
+		// Check each node to find the proposer of block i
+		for _, n := range sim.Nodes {
+			if header, exists := n.BlockHeaderChain[i]; exists && header.ProducerID >= 0 {
+				if proposerNode, ok := sim.Nodes[header.ProducerID]; ok {
+					proposers = append(proposers, proposerNode)
+				}
+				break // Found the proposer for this block, move to next block
+			}
+		}
+	}
+	return proposers
 }
 
 /// FURUTE IMPROVEMENTS
