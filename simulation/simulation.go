@@ -234,6 +234,10 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 	} else {
 		latestBlockID := s.LatestBlockID()
 		blk := producerNode.CreateBlock(latestBlockID, sim.CurrentTime)
+
+		// The proposer must add the block to its blockchain
+		producerNode.HandleBlock(blk)
+
 		blk.Timestamp = sim.CurrentTime
 
 		// Node broadcasts the block to peers in the shard
