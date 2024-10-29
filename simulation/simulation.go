@@ -139,7 +139,7 @@ func (sim *Simulation) Run() {
 	}
 
 	// Network delay for each shard
-	fmt.Println("\nFinal network delays for shards:", sim.NetworkBlockBroadcastDelays)
+	// fmt.Println("\nFinal network delays for shards:", sim.NetworkBlockBroadcastDelays)
 	sim.handleMetricsEvent()
 }
 
@@ -151,8 +151,6 @@ func (sim *Simulation) processEvent(e *event.Event) {
 		sim.handleShardBlockProductionEvent(e)
 	case event.MessageEvent:
 		sim.handleMessageEvent(e)
-	case event.MetricsEvent:
-		sim.handleMetricsEvent()
 	default:
 		// Unknown event type
 		log := fmt.Sprintf("[Simulation] Unknown event type at time %d", sim.CurrentTime)
@@ -250,7 +248,7 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 		downloadTime := producerNode.DownloadLatestKBlocks(proposers, sim.CurrentTime)
 		sim.NetworkBlockDownloadDelays[shardID] = append(sim.NetworkBlockDownloadDelays[shardID], int64(downloadTime))
 
-		fmt.Println("Download time for node", producerNode.ID, "is", downloadTime)
+		// fmt.Println("Download time for node", producerNode.ID, "is", downloadTime)
 
 		blk := producerNode.CreateBlock(latestBlockID, sim.CurrentTime)
 		blkHeader := producerNode.CreateBlockHeader(latestBlockID, sim.CurrentTime)
@@ -279,6 +277,9 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 			sim.NetworkBlockHeaderDelays[shardID] = append(sim.NetworkBlockHeaderDelays[shardID], int64(delay/float64(len(events))))
 		}
 
+		// Add the block to the shard
+		sim.Shards[shardID].AddBlock(blk)
+
 		// Schedule next ShardBlockProductionEvent for this shard
 		if sim.CurrentTime < sim.Config.SimulationTime {
 			nextEvent := &event.Event{
@@ -304,7 +305,29 @@ func (sim *Simulation) handleMessageEvent(e *event.Event) {
 }
 
 func (sim *Simulation) handleMetricsEvent() {
-	// sim.Metrics.Collect(sim.CurrentTime, sim.Shards, sim.Nodes, sim.NetworkBlockBroadcastDelays, sim.Logs, sim.currentStepMaliciousShardRotations)
+	fmt.Println("Number of shard blocks", len(sim.Shards[0].Blocks))
+	sim.Metrics.Collect(
+		sim.CurrentTime,
+		sim.Shards,
+		sim.Nodes,
+		sim.NetworkBlockBroadcastDelays,
+		sim.NetworkBlockHeaderDelays,
+		sim.NetworkBlockDownloadDelays,
+		sim.Logs,
+		sim.currentStepMaliciousShardRotations,
+	)
+
+	// Reset the malicious rotation counter for the next interval
+	sim.currentStepMaliciousShardRotations = 0
+
+	// Schedule next metrics collection if within simulation time
+	if sim.CurrentTime+sim.Config.TimeStep < sim.Config.SimulationTime {
+		nextEvent := &event.Event{
+			Timestamp: float64(sim.CurrentTime) + float64(sim.Config.TimeStep),
+			Type:      event.MetricsEvent,
+		}
+		heap.Push(sim.EventQueue, nextEvent)
+	}
 }
 
 func (sim *Simulation) getShardNodes(shardID int) []*node.Node {
@@ -351,15 +374,3 @@ func (sim *Simulation) getProposers(latestBlockID int) []*node.Node {
 	}
 	return proposers
 }
-
-/// FURUTE IMPROVEMENTS
-// func (sim *Simulation) handleAttackEvent(e *event.Event) {
-// 	atkType, ok := e.Data.(config.AttackType)
-// 	if !ok {
-// 		log := fmt.Sprintf("[Simulation] Invalid attack data at time %d", sim.CurrentTime)
-// 		sim.Logs = append(sim.Logs, log)
-// 		return
-// 	}
-
-// 	attack.ExecuteAttack(atkType, sim.CurrentTime, sim.Nodes, sim.Shards, sim.EventQueue, sim.Config, &sim.Logs)
-// }

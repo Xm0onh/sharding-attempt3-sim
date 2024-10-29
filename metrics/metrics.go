@@ -1,14 +1,21 @@
-// metrics.go
-
 package metrics
 
 import (
 	"fmt"
+	"io"
 	"os"
-	"sharding/config"
 	"sharding/node"
 	"sharding/shard"
 )
+
+type NetworkMetrics struct {
+	BlockBroadcastDelays []float64
+	BlockHeaderDelays    []float64
+	BlockDownloadDelays  []float64
+	AverageBlockDelay    float64
+	AverageHeaderDelay   float64
+	AverageDownloadDelay float64
+}
 
 type ShardMetrics struct {
 	HonestNodes     int
@@ -17,302 +24,183 @@ type ShardMetrics struct {
 	MaliciousBlocks int
 }
 
-type MetricsData struct {
-	Timestamp                       int64
-	BlocksThisStep                  int
-	TransactionsThisStep            int
-	MaliciousShardRotationsThisStep int // New field
-	Throughput                      float64
-	AverageNetworkDelay             float64
-	Latency                         float64
-	ShardStats                      map[int]*ShardMetrics
-	Logs                            []string
+type TimeWindowMetrics struct {
+	TotalEvents             int64
+	AverageResponseTime     float64
+	ErrorRate               float64
+	TotalBlocks             int
+	TotalTransactions       int
+	MaliciousShardRotations int
+	NetworkMetrics          NetworkMetrics
+	ShardStats              map[int]*ShardMetrics
 }
 
 type MetricsCollector struct {
-	Data []MetricsData
+	CurrentMetrics TimeWindowMetrics
+	Logs           []string
 }
 
 func NewMetricsCollector() *MetricsCollector {
 	return &MetricsCollector{
-		Data: make([]MetricsData, 0),
+		CurrentMetrics: TimeWindowMetrics{
+			ShardStats: make(map[int]*ShardMetrics),
+		},
+		Logs: make([]string, 0),
 	}
 }
 
-// Collect gathers metrics at each time step, including attack logs and malicious shard rotations.
-func (mc *MetricsCollector) Collect(timestamp int64, shards map[int]*shard.Shard, nodes map[int]*node.Node, networkDelays []int64, Logs []string, maliciousShardRotations int) {
-	md := MetricsData{
-		Timestamp:                       timestamp,
-		BlocksThisStep:                  0,
-		TransactionsThisStep:            0,
-		MaliciousShardRotationsThisStep: maliciousShardRotations,
-		AverageNetworkDelay:             0,
-		Latency:                         0,
-		ShardStats:                      make(map[int]*ShardMetrics),
-		Logs:                            make([]string, len(Logs)),
-	}
-
-	// Copy attack logs to avoid mutation
-	copy(md.Logs, Logs)
-
-	totalDelay := int64(0)
-	totalEvents := len(networkDelays)
-
-	// Initialize ShardStats
-	for shardID := range shards {
-		md.ShardStats[shardID] = &ShardMetrics{}
-	}
-
-	// Count nodes per shard
-	for _, n := range nodes {
-		if n.IsAssignedToShard() {
-			shardID := n.AssignedShard
-			if shardID < 0 {
-				continue
-			}
-			if _, exists := md.ShardStats[shardID]; !exists {
-				md.ShardStats[shardID] = &ShardMetrics{}
-			}
-			if n.IsHonest {
-				md.ShardStats[shardID].HonestNodes++
-			} else {
-				md.ShardStats[shardID].MaliciousNodes++
-			}
+func (mc *MetricsCollector) Collect(
+	timestamp int64,
+	shards map[int]*shard.Shard,
+	nodes map[int]*node.Node,
+	blockDelays map[int][]int64,
+	headerDelays map[int][]int64,
+	downloadDelays map[int][]int64,
+	logs []string,
+	maliciousRotations int,
+) {
+	// Process network delays
+	for _, delays := range blockDelays {
+		for _, delay := range delays {
+			mc.CurrentMetrics.NetworkMetrics.BlockBroadcastDelays = append(
+				mc.CurrentMetrics.NetworkMetrics.BlockBroadcastDelays,
+				float64(delay),
+			)
 		}
 	}
 
-	// Count blocks and transactions per shard for this time step
+	for _, delays := range headerDelays {
+		for _, delay := range delays {
+			mc.CurrentMetrics.NetworkMetrics.BlockHeaderDelays = append(
+				mc.CurrentMetrics.NetworkMetrics.BlockHeaderDelays,
+				float64(delay),
+			)
+		}
+	}
+
+	for _, delays := range downloadDelays {
+		for _, delay := range delays {
+			mc.CurrentMetrics.NetworkMetrics.BlockDownloadDelays = append(
+				mc.CurrentMetrics.NetworkMetrics.BlockDownloadDelays,
+				float64(delay),
+			)
+		}
+	}
+
+	// Reset shard statistics for this collection
+	mc.CurrentMetrics.ShardStats = make(map[int]*ShardMetrics)
+
+	// Reset total blocks counter
+	mc.CurrentMetrics.TotalBlocks = 0
+
+	// Update shard statistics
 	for shardID, s := range shards {
-		for _, blk := range s.Blocks {
-			if blk.Timestamp == timestamp {
-				md.BlocksThisStep++
-				if !blk.IsMalicious {
-					md.TransactionsThisStep += config.TransactionsPerBlock
-					md.ShardStats[shardID].HonestBlocks++
-				} else {
-					md.ShardStats[shardID].MaliciousBlocks++
-				}
+		stats := &ShardMetrics{}
+		mc.CurrentMetrics.ShardStats[shardID] = stats
+
+		// Count honest and malicious nodes
+		honestNodes := s.GetHonestNodes()
+		maliciousNodes := s.GetMaliciousNodes()
+		stats.HonestNodes = len(honestNodes)
+		stats.MaliciousNodes = len(maliciousNodes)
+
+		// Count blocks in the shard
+		stats.HonestBlocks = 0
+		stats.MaliciousBlocks = 0
+		for _, block := range s.Blocks {
+			if block.IsMalicious {
+				stats.MaliciousBlocks++
+			} else {
+				stats.HonestBlocks++
 			}
 		}
+
+		// Update total blocks count
+		mc.CurrentMetrics.TotalBlocks += stats.HonestBlocks + stats.MaliciousBlocks
 	}
 
-	// Calculate average network delay
-	for _, delay := range networkDelays {
-		totalDelay += delay
-	}
-
-	if totalEvents > 0 {
-		md.AverageNetworkDelay = float64(totalDelay) / float64(totalEvents)
-	}
-
-	// Calculate Throughput (TPS) for this step
-	md.Throughput = float64(md.TransactionsThisStep) / float64(config.TimeStep)
-
-	// Calculate Latency
-	md.Latency = float64(config.BlockProductionInterval) + md.AverageNetworkDelay
-
-	mc.Data = append(mc.Data, md)
+	mc.CurrentMetrics.MaliciousShardRotations += maliciousRotations
+	mc.Logs = append(mc.Logs, logs...)
 }
 
-// GenerateReport writes the collected metrics to a report file, including attack logs and a summary analysis.
+func (mc *MetricsCollector) calculateAverages() {
+	if len(mc.CurrentMetrics.NetworkMetrics.BlockBroadcastDelays) > 0 {
+		sum := 0.0
+		for _, d := range mc.CurrentMetrics.NetworkMetrics.BlockBroadcastDelays {
+			sum += d
+		}
+		mc.CurrentMetrics.NetworkMetrics.AverageBlockDelay = sum / float64(len(mc.CurrentMetrics.NetworkMetrics.BlockBroadcastDelays))
+	}
+
+	if len(mc.CurrentMetrics.NetworkMetrics.BlockHeaderDelays) > 0 {
+		sum := 0.0
+		for _, d := range mc.CurrentMetrics.NetworkMetrics.BlockHeaderDelays {
+			sum += d
+		}
+		mc.CurrentMetrics.NetworkMetrics.AverageHeaderDelay = sum / float64(len(mc.CurrentMetrics.NetworkMetrics.BlockHeaderDelays))
+	}
+
+	if len(mc.CurrentMetrics.NetworkMetrics.BlockDownloadDelays) > 0 {
+		sum := 0.0
+		for _, d := range mc.CurrentMetrics.NetworkMetrics.BlockDownloadDelays {
+			sum += d
+		}
+		mc.CurrentMetrics.NetworkMetrics.AverageDownloadDelay = sum / float64(len(mc.CurrentMetrics.NetworkMetrics.BlockDownloadDelays))
+	}
+}
+
 func (mc *MetricsCollector) GenerateReport() error {
-	file, err := os.Create("metrics_report.txt")
+	// Calculate averages before generating report
+	mc.calculateAverages()
+
+	f, err := os.Create("simulation_report.txt")
 	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
+		return fmt.Errorf("failed to create report file: %v", err)
 	}
-	defer file.Close()
+	defer f.Close()
 
-	_, err = file.WriteString("Metrics Report:\n")
-	if err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
-	}
+	fmt.Fprintln(f, "=== Simulation Report ===\n")
+	writeTimeWindowMetrics(f, "Simulation Metrics", mc.CurrentMetrics)
 
-	// Variables to accumulate TPS for analysis
-	var preAttackTPS, duringAttackTPS, postAttackTPS float64
-	var preAttackCount, duringAttackCount, postAttackCount int
-
-	// Variables to accumulate malicious shard rotations
-	var preAttackRotations, duringAttackRotations, postAttackRotations int
-
-	// Define attack window
-	attackStart := config.AttackStartTime
-	attackEnd := config.AttackEndTime
-
-	// Accumulate total blocks produced in each shard
-	totalBlocksPerShard := make(map[int]int)
-	totalHonestBlocksPerShard := make(map[int]int)
-	totalMaliciousBlocksPerShard := make(map[int]int)
-	for _, md := range mc.Data {
-		for shardID, stats := range md.ShardStats {
-			totalBlocksPerShard[shardID] += stats.HonestBlocks + stats.MaliciousBlocks
-			totalHonestBlocksPerShard[shardID] += stats.HonestBlocks
-			totalMaliciousBlocksPerShard[shardID] += stats.MaliciousBlocks
-		}
-	}
-
-	for _, md := range mc.Data {
-		// Write global metrics
-		_, err := file.WriteString(fmt.Sprintf("Time: %d, Blocks This Step: %d, Transactions This Step: %d, TPS: %.2f, Avg Latency: %.2f units\n",
-			md.Timestamp, md.BlocksThisStep, md.TransactionsThisStep, md.Throughput, md.Latency))
-		if err != nil {
-			return fmt.Errorf("failed to write to file: %w", err)
-		}
-
-		// Write shard-specific metrics
-		for shardID, stats := range md.ShardStats {
-			_, err := file.WriteString(fmt.Sprintf("  Shard %d: Honest Nodes: %d, Malicious Nodes: %d, Honest Blocks: %d, Malicious Blocks: %d\n",
-				shardID, stats.HonestNodes, stats.MaliciousNodes, stats.HonestBlocks, stats.MaliciousBlocks))
-			if err != nil {
-				return fmt.Errorf("failed to write to file: %w", err)
-			}
-		}
-
-		// Write attack logs, if any
-		for _, log := range md.Logs {
-			_, err := file.WriteString(fmt.Sprintf("  %s\n", log))
-			if err != nil {
-				return fmt.Errorf("failed to write to file: %w", err)
-			}
-		}
-
-		// Write malicious shard rotations, if any
-		if md.MaliciousShardRotationsThisStep > 0 {
-			_, err := file.WriteString(fmt.Sprintf("  Malicious Shard Rotations This Step: %d\n", md.MaliciousShardRotationsThisStep))
-			if err != nil {
-				return fmt.Errorf("failed to write to file: %w", err)
-			}
-		}
-
-		// Categorize TPS and Malicious Rotations based on attack window
-		if md.Timestamp < int64(attackStart) {
-			preAttackTPS += md.Throughput
-			preAttackCount++
-			preAttackRotations += md.MaliciousShardRotationsThisStep
-		} else if md.Timestamp >= int64(attackStart) && md.Timestamp <= int64(attackEnd) {
-			duringAttackTPS += md.Throughput
-			duringAttackCount++
-			duringAttackRotations += md.MaliciousShardRotationsThisStep
-		} else {
-			postAttackTPS += md.Throughput
-			postAttackCount++
-			postAttackRotations += md.MaliciousShardRotationsThisStep
-		}
-		// Add a separator for readability
-		_, err = file.WriteString("\n")
-		if err != nil {
-			return fmt.Errorf("failed to write to file: %w", err)
-		}
-	}
-
-	// Write the total number of blocks produced in each shard
-	for shardID, totalBlocks := range totalBlocksPerShard {
-		_, err := file.WriteString(fmt.Sprintf("Total Blocks Produced in Shard %d: %d\n", shardID, totalBlocks))
-		if err != nil {
-			return fmt.Errorf("failed to write to file: %w", err)
-		}
-	}
-
-	// Write the total number of honest and malicious blocks in each shard
-	for shardID := range totalBlocksPerShard {
-		_, err := file.WriteString(fmt.Sprintf("Total Honest Blocks in Shard %d: %d\n", shardID, totalHonestBlocksPerShard[shardID]))
-		if err != nil {
-			return fmt.Errorf("failed to write to file: %w", err)
-		}
-		_, err = file.WriteString(fmt.Sprintf("Total Malicious Blocks in Shard %d: %d\n", shardID, totalMaliciousBlocksPerShard[shardID]))
-		if err != nil {
-			return fmt.Errorf("failed to write to file: %w", err)
-		}
-	}
-
-	// Calculate average TPS for each period
-	avgPreAttackTPS := 0.0
-	if preAttackCount > 0 {
-		avgPreAttackTPS = preAttackTPS / float64(preAttackCount)
-	}
-
-	avgDuringAttackTPS := 0.0
-	if duringAttackCount > 0 {
-		avgDuringAttackTPS = duringAttackTPS / float64(duringAttackCount)
-	}
-
-	avgPostAttackTPS := 0.0
-	if postAttackCount > 0 {
-		avgPostAttackTPS = postAttackTPS / float64(postAttackCount)
-	}
-
-	// Calculate total rotations for each period
-	totalPreAttackRotations := preAttackRotations
-	totalDuringAttackRotations := duringAttackRotations
-	totalPostAttackRotations := postAttackRotations
-
-	// Append summary analysis
-	_, err = file.WriteString("Summary Analysis:\n")
-	if err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
-	}
-
-	_, err = file.WriteString(fmt.Sprintf("Average TPS before Grinding Attack (Time < %d): %.2f\n", attackStart, avgPreAttackTPS))
-	if err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
-	}
-
-	_, err = file.WriteString(fmt.Sprintf("Average TPS during Grinding Attack (%d <= Time <= %d): %.2f\n", attackStart, attackEnd, avgDuringAttackTPS))
-	if err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
-	}
-
-	_, err = file.WriteString(fmt.Sprintf("Average TPS after Grinding Attack (Time > %d): %.2f\n", attackEnd, avgPostAttackTPS))
-	if err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
-	}
-
-	// Append rotations summary
-	_, err = file.WriteString(fmt.Sprintf("\nTotal Successful Shard Rotations by Malicious Nodes before Attack (Time < %d): %d\n", attackStart, totalPreAttackRotations))
-	if err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
-	}
-
-	_, err = file.WriteString(fmt.Sprintf("Total Successful Shard Rotations by Malicious Nodes during Attack (%d <= Time <= %d): %d\n", attackStart, attackEnd, totalDuringAttackRotations))
-	if err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
-	}
-
-	_, err = file.WriteString(fmt.Sprintf("Total Successful Shard Rotations by Malicious Nodes after Attack (Time > %d): %d\n", attackEnd, totalPostAttackRotations))
-	if err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
-	}
-
-	// Analyze the effect of Grinding Attack on TPS
-	_, err = file.WriteString("\nEffect of Grinding Attack on TPS:\n")
-	if err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
-	}
-
-	if avgDuringAttackTPS > avgPreAttackTPS {
-		_, err = file.WriteString("The Grinding Attack increased the TPS during the attack period.\n")
-	} else if avgDuringAttackTPS < avgPreAttackTPS {
-		_, err = file.WriteString("The Grinding Attack decreased the TPS during the attack period.\n")
-	} else {
-		_, err = file.WriteString("The Grinding Attack had no significant effect on the TPS during the attack period.\n")
-	}
-
-	// Analyze the effect of Grinding Attack on shard rotations
-	_, err = file.WriteString("\nEffect of Grinding Attack on Shard Rotations:\n")
-	if err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
-	}
-
-	if totalDuringAttackRotations > totalPreAttackRotations {
-		_, err = file.WriteString("The Grinding Attack led to more successful shard rotations by malicious nodes during the attack period.\n")
-	} else if totalDuringAttackRotations < totalPreAttackRotations {
-		_, err = file.WriteString("The Grinding Attack did not increase the number of successful shard rotations by malicious nodes during the attack period.\n")
-	} else {
-		_, err = file.WriteString("The Grinding Attack had no significant effect on the number of successful shard rotations by malicious nodes during the attack period.\n")
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
-	}
+	// Write logs
+	// fmt.Fprintln(f, "=== Event Logs ===")
+	// for _, log := range mc.Logs {
+	// 	fmt.Fprintln(f, log)
+	// }
 
 	return nil
 }
+
+// Helper function to calculate percentage
+func calculatePercentage(part, total int) float64 {
+	if total == 0 {
+		return 0
+	}
+	return float64(part) / float64(total) * 100
+}
+
+func writeTimeWindowMetrics(w io.Writer, title string, metrics TimeWindowMetrics) {
+	fmt.Fprintf(w, "%s:\n", title)
+
+	// Add block production statistics
+	fmt.Fprintf(w, "\nBlock Production Statistics:\n")
+	for shardID, stats := range metrics.ShardStats {
+		totalBlocks := stats.HonestBlocks + stats.MaliciousBlocks
+		fmt.Fprintf(w, "  Shard %d: %d blocks\n", shardID, totalBlocks)
+	}
+	fmt.Fprintf(w, "\n") // Add spacing
+
+	// Original metrics
+	fmt.Fprintf(w, "Simulation Metrics:\n")
+	fmt.Fprintf(w, "  Total Events: %d\n", metrics.TotalEvents)
+	fmt.Fprintf(w, "  Average Response Time: %.2fms\n", metrics.AverageResponseTime)
+	fmt.Fprintf(w, "  Error Rate: %.2f%%\n", metrics.ErrorRate*100)
+
+	// Network metrics
+	fmt.Fprintf(w, "\nNetwork Metrics:\n")
+	fmt.Fprintf(w, "  Average Block Broadcast Delay: %.2fms\n", metrics.NetworkMetrics.AverageBlockDelay)
+	fmt.Fprintf(w, "  Average Block Header Delay: %.2fms\n", metrics.NetworkMetrics.AverageHeaderDelay)
+	fmt.Fprintf(w, "  Average Block Download Delay: %.2fms\n\n", metrics.NetworkMetrics.AverageDownloadDelay)
+}
+
+// ... continued in next message ...

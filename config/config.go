@@ -39,14 +39,14 @@ type Config struct {
 
 const (
 	// Simulation parameters
-	SimulationTime = 120 // Total simulation time units
-	TimeStep       = 1   // Simulation time step
+	SimulationTime = 1200 // Total simulation time units
+	TimeStep       = 1    // Simulation time step
 
 	// Node parameters
-	NumNodes     = 100
-	NumOperators = 1
+	NumNodes     = 10000
+	NumOperators = 10
 	// Shard parameters
-	NumShards = 1
+	NumShards = 2
 
 	// Attack parameters
 	MaliciousNodeRatio      = 0.1 // 10% of nodes are malicious
@@ -55,7 +55,7 @@ const (
 	MaliciousNodeMultiplier = 1000 // Multiplier for malicious nodes in lottery attempts
 
 	// Lottery parameters
-	LotteryWinProbability = 1 // Base probability for winning the lottery
+	LotteryWinProbability = 0.001 // Base probability for winning the lottery
 
 	// Block parameters
 	BlockProductionInterval = 6     // Shards produce a block every 6 time steps
