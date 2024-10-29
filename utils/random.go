@@ -4,12 +4,7 @@ import (
 	"math"
 	"math/rand"
 	cfg "sharding/config"
-	"time"
 )
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
 
 // SimulateNetworkBlockDelay calculates network delay for full block propagation
 func SimulateNetworkBlockDelay() float64 {
@@ -28,7 +23,6 @@ func SimulateNetworkBlockDelay() float64 {
 
 		totalDelay += hopLatency + transmissionDelay
 	}
-
 	return totalDelay * 1000.0 // Convert to milliseconds
 }
 
