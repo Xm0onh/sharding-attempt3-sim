@@ -24,6 +24,11 @@ func NewShard(id int) *Shard {
 }
 
 func (s *Shard) AddBlock(blk *block.Block) {
+	for _, b := range s.Blocks {
+		if b.ID == blk.ID {
+			return
+		}
+	}
 	s.Blocks = append(s.Blocks, blk)
 }
 
@@ -79,4 +84,8 @@ func (s *Shard) IsolateNode(nodeID int) {
 		s.RemoveNode(nodeID)
 		fmt.Printf("[Shard %d] Node %d has been isolated.\n", s.ID, nodeID)
 	}
+}
+
+func (s *Shard) GetBlock(id int) *block.Block {
+	return s.Blocks[id]
 }

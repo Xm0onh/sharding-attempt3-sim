@@ -14,7 +14,7 @@ const (
 )
 
 type Event struct {
-	Timestamp int64
+	Timestamp float64
 	Type      EventType
 	NodeID    int
 	ShardID   int

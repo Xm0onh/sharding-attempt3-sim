@@ -62,9 +62,9 @@ func (n *Node) BroadcastBlock(blk *block.Block, peers []*Node, currentTime int64
 	events := make([]*event.Event, 0)
 	for _, peerNode := range peers {
 		if peerNode.ID != n.ID {
-			delay := utils.SimulateNetworkDelay()
+			delay := utils.SimulateNetworkBlockDelay()
 			e := &event.Event{
-				Timestamp: currentTime + delay,
+				Timestamp: float64(currentTime) + delay,
 				Type:      event.MessageEvent,
 				NodeID:    peerNode.ID,
 				Data:      blk,

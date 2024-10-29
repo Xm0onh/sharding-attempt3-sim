@@ -1,8 +1,8 @@
 package utils
 
 import (
-	"math"
 	"math/rand"
+	cfg "sharding/config"
 	"time"
 )
 
@@ -10,10 +10,17 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func SimulateNetworkDelay() int64 {
+func SimulateNetworkBlockDelay() float64 {
 	delay := rand.NormFloat64()*float64(NetworkDelayStd) + float64(NetworkDelayMean)
-	if delay < 1 {
-		delay = 1
-	}
-	return int64(math.Round(delay))
+	return delay
+}
+
+func SimulateNetworkBlockHeaderDelay() float64 {
+	// Base delay using normal distribution
+	baseDelay := rand.NormFloat64()*float64(NetworkDelayStd) + float64(NetworkDelayMean)
+
+	// Scale delay based on block header size (assuming 1KB = 1 time unit scaling factor)
+	sizeScalingFactor := float64(cfg.BlockHeaderSize) / 1000.0
+
+	return baseDelay * sizeScalingFactor
 }
