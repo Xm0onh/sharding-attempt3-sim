@@ -107,7 +107,7 @@ func (sim *Simulation) Run() {
 		// 1 -> MessageEvent
 		// 2 -> MetricsEvent
 		// 3 -> ShardBlockProductionEvent
-		if e.Type == 1 {
+		if e.Type == 3 {
 			counter++
 		}
 	}
@@ -180,10 +180,10 @@ func (sim *Simulation) processLotteryWin(n *node.Node, newShardID int) {
 	//
 	//
 
-	// Node produces a block immediately upon assignment to new shard
-	latestBlockID := newShard.LatestBlockID()
-	blk := n.CreateBlock(latestBlockID, sim.CurrentTime)
-	newShard.AddBlock(blk)
+	// Node produces a block immediately upon assignment to new shard - outdated
+	// latestBlockID := newShard.LatestBlockID()
+	// blk := n.CreateBlock(latestBlockID, sim.CurrentTime)
+	// newShard.AddBlock(blk)
 
 	/*
 		TODO -
@@ -191,12 +191,12 @@ func (sim *Simulation) processLotteryWin(n *node.Node, newShardID int) {
 		- Broadcast block body to operators within the shard ONLY
 	*/
 	// Node broadcasts the block to peers in the new shard
-	shardNodes := sim.getShardNodes(newShardID)
-	events := n.BroadcastBlock(blk, shardNodes, sim.CurrentTime)
-	for _, evt := range events {
-		heap.Push(sim.EventQueue, evt)
-		sim.NetworkDelays = append(sim.NetworkDelays, evt.Timestamp-sim.CurrentTime)
-	}
+	// shardNodes := sim.getShardNodes(newShardID)
+	// events := n.BroadcastBlock(blk, shardNodes, sim.CurrentTime)
+	// for _, evt := range events {
+	// 	heap.Push(sim.EventQueue, evt)
+	// 	sim.NetworkDelays = append(sim.NetworkDelays, evt.Timestamp-sim.CurrentTime)
+	// }
 }
 func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 	shardID := e.ShardID
@@ -225,10 +225,11 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 
 	if producerNode == nil {
 		// All nodes have produced blocks, skip producing a block
+		// fmt.Println("All nodes in shard", shardID, "have produced blocks, skipping block production at time", sim.CurrentTime)
 		log := fmt.Sprintf("All nodes in shard %d have produced blocks, skipping block production at time %d", shardID, sim.CurrentTime)
 		sim.Logs = append(sim.Logs, log)
 	} else {
-		// fmt.Println("producerID ->", producerNode.ID)
+		fmt.Println("producerID ->", producerNode.ID)
 		// Node creates a block
 		latestBlockID := s.LatestBlockID()
 		blk := producerNode.CreateBlock(latestBlockID, sim.CurrentTime)
