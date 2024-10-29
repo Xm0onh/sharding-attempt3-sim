@@ -1,5 +1,3 @@
-// config/config.go
-
 package config
 
 type AttackType int
@@ -7,7 +5,6 @@ type AttackType int
 const (
 	NoAttack AttackType = iota
 	GrindingAttack
-	// Add other attack types as needed
 )
 
 type Config struct {
@@ -29,14 +26,14 @@ type Config struct {
 }
 
 const (
-	NumNodes                = 10000
-	NumShards               = 10
-	SimulationTime          = 120   // Total simulation time units
-	TimeStep                = 1     // Simulation time step
-	NetworkDelayMean        = 5     // Average network delay in time units
-	NetworkDelayStd         = 2     // Standard deviation of network delay
-	MaliciousNodeRatio      = 0.1   // 10% of nodes are malicious
-	LotteryWinProbability   = 0.001 // Base probability for winning the lottery
+	NumNodes                = 100
+	NumShards               = 1
+	SimulationTime          = 120  // Total simulation time units
+	TimeStep                = 1    // Simulation time step
+	NetworkDelayMean        = 5    // Average network delay in time units
+	NetworkDelayStd         = 2    // Standard deviation of network delay
+	MaliciousNodeRatio      = 0.1  // 10% of nodes are malicious
+	LotteryWinProbability   = 0.01 // Base probability for winning the lottery
 	AttackStartTime         = 20
 	AttackEndTime           = 60
 	MaliciousNodeMultiplier = 1000 // Multiplier for malicious nodes in lottery attempts

@@ -9,7 +9,6 @@ type EventType int
 const (
 	LotteryEvent EventType = iota
 	MessageEvent
-	AttackEvent
 	MetricsEvent
 	ShardBlockProductionEvent
 )
@@ -33,6 +32,9 @@ func NewEventQueue() *EventQueue {
 func (eq EventQueue) Len() int { return len(eq) }
 
 func (eq EventQueue) Less(i, j int) bool {
+	if eq[i].Timestamp == eq[j].Timestamp {
+		return eq[i].Type < eq[j].Type
+	}
 	return eq[i].Timestamp < eq[j].Timestamp
 }
 
@@ -47,9 +49,10 @@ func (eq *EventQueue) Push(x interface{}) {
 func (eq *EventQueue) Pop() interface{} {
 	old := *eq
 	n := len(old)
-	x := old[n-1]
+	item := old[0]
+	old[0] = old[n-1]
 	*eq = old[0 : n-1]
-	return x
+	return item
 }
 
 func (eq *EventQueue) IsEmpty() bool {

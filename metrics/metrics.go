@@ -26,7 +26,7 @@ type MetricsData struct {
 	AverageNetworkDelay             float64
 	Latency                         float64
 	ShardStats                      map[int]*ShardMetrics
-	AttackLogs                      []string
+	Logs                            []string
 }
 
 type MetricsCollector struct {
@@ -40,7 +40,7 @@ func NewMetricsCollector() *MetricsCollector {
 }
 
 // Collect gathers metrics at each time step, including attack logs and malicious shard rotations.
-func (mc *MetricsCollector) Collect(timestamp int64, shards map[int]*shard.Shard, nodes map[int]*node.Node, networkDelays []int64, attackLogs []string, maliciousShardRotations int) {
+func (mc *MetricsCollector) Collect(timestamp int64, shards map[int]*shard.Shard, nodes map[int]*node.Node, networkDelays []int64, Logs []string, maliciousShardRotations int) {
 	md := MetricsData{
 		Timestamp:                       timestamp,
 		BlocksThisStep:                  0,
@@ -49,11 +49,11 @@ func (mc *MetricsCollector) Collect(timestamp int64, shards map[int]*shard.Shard
 		AverageNetworkDelay:             0,
 		Latency:                         0,
 		ShardStats:                      make(map[int]*ShardMetrics),
-		AttackLogs:                      make([]string, len(attackLogs)),
+		Logs:                            make([]string, len(Logs)),
 	}
 
 	// Copy attack logs to avoid mutation
-	copy(md.AttackLogs, attackLogs)
+	copy(md.Logs, Logs)
 
 	totalDelay := int64(0)
 	totalEvents := len(networkDelays)
@@ -168,7 +168,7 @@ func (mc *MetricsCollector) GenerateReport() error {
 		}
 
 		// Write attack logs, if any
-		for _, log := range md.AttackLogs {
+		for _, log := range md.Logs {
 			_, err := file.WriteString(fmt.Sprintf("  %s\n", log))
 			if err != nil {
 				return fmt.Errorf("failed to write to file: %w", err)
