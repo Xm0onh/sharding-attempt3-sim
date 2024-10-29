@@ -23,6 +23,8 @@ type Config struct {
 	LotteryWinProbability   float64
 	MaliciousNodeMultiplier int
 	AttackSchedule          map[int64]AttackType
+	BlockSize               int
+	BlockHeaderSize         int
 }
 
 const (
@@ -36,9 +38,11 @@ const (
 	LotteryWinProbability   = 0.001 // Base probability for winning the lottery
 	AttackStartTime         = 20
 	AttackEndTime           = 60
-	MaliciousNodeMultiplier = 1000 // Multiplier for malicious nodes in lottery attempts
-	BlockProductionInterval = 6    // Shards produce a block every 6 time steps
-	TransactionsPerBlock    = 100  // Each block contains 100 transactions
+	MaliciousNodeMultiplier = 1000  // Multiplier for malicious nodes in lottery attempts
+	BlockProductionInterval = 6     // Shards produce a block every 6 time steps
+	TransactionsPerBlock    = 100   // Each block contains 100 transactions
+	BlockSize               = 10000 // Block size in bytes
+	BlockHeaderSize         = 500   // Block header size in bytes
 )
 
 // InitializeAttackSchedule initializes the attack schedule with both start and end times
