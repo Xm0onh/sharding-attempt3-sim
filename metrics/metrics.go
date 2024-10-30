@@ -186,7 +186,11 @@ func writeTimeWindowMetrics(w io.Writer, title string, metrics TimeWindowMetrics
 	fmt.Fprintf(w, "\nBlock Production Statistics:\n")
 	for shardID, stats := range metrics.ShardStats {
 		totalBlocks := stats.HonestBlocks + stats.MaliciousBlocks
+		fmt.Fprintf(w, "=== Shard %d ===\n", shardID)
+		fmt.Fprintf(w, "  Shard %d: %d malicious blocks\n", shardID, stats.MaliciousBlocks)
+		fmt.Fprintf(w, "  Shard %d: %d honest blocks\n", shardID, stats.HonestBlocks)
 		fmt.Fprintf(w, "  Shard %d: %d blocks\n", shardID, totalBlocks)
+
 	}
 	fmt.Fprintf(w, "\n") // Add spacing
 
