@@ -33,6 +33,7 @@ type Config struct {
 	MaxNetworkDelayStd      float64
 	MinGossipFanout         int
 	MaxGossipFanout         int
+	MaxP2PConnections       int
 	TimeOut                 int64
 	NumBlocksToDownload     int
 }
@@ -73,7 +74,8 @@ const (
 	MaxNetworkDelayStd  = 50.0  // 50ms maximum standard deviation
 	MinGossipFanout     = 4     // Minimum nodes to gossip to
 	MaxGossipFanout     = 8     // Maximum nodes to gossip to
-	TimeOut             = 2000  // Timeout for block download in milliseconds
+	MaxP2PConnections   = 32
+	TimeOut             = 2000 // Timeout for block download in milliseconds
 
 	// Download parameters
 	NumBlocksToDownload = 50

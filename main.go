@@ -33,6 +33,7 @@ func main() {
 		MaxNetworkDelayStd:      config.MaxNetworkDelayStd,
 		MinGossipFanout:         config.MinGossipFanout,
 		MaxGossipFanout:         config.MaxGossipFanout,
+		MaxP2PConnections:       config.MaxP2PConnections,
 		TimeOut:                 config.TimeOut,
 		NumBlocksToDownload:     config.NumBlocksToDownload,
 	}
