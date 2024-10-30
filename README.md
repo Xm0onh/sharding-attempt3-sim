@@ -31,23 +31,35 @@ The **Sharding Simulation** models a sharded blockchain network to analyze block
 
 Modify the simulation parameters in `config/config.go`:
 
-| Parameter                   | Type      | Description                                                   | Default Value |
-|-----------------------------|-----------|---------------------------------------------------------------|---------------|
-| `NumNodes`                  | `int`     | Total number of nodes in the network.                         | 10000         |
-| `NumShards`                 | `int`     | Total number of shards in the network.                        | 10            |
-| `SimulationTime`            | `int64`   | Total duration of the simulation in time units.               | 120           |
-| `TimeStep`                  | `int64`   | Simulation advances in increments of this time unit.          | 1             |
-| `NetworkDelayMean`          | `int64`   | Average network delay in time units for block propagation.    | 5             |
-| `NetworkDelayStd`           | `int64`   | Standard deviation of network delay in time units.            | 2             |
-| `MaliciousNodeRatio`        | `float64` | Percentage of nodes that behave maliciously.                  | 0.1 (10%)     |
-| `LotteryWinProbability`     | `float64` | Probability of an honest node winning the lottery per attempt.| 0.001         |
-| `MaliciousNodeMultiplier`   | `int`     | Additional lottery attempts for malicious nodes.              | 5             |
-| `BlockProductionInterval`   | `int64`   | Time steps between each shard's block production events.      | 6             |
-| `TransactionsPerBlock`      | `int`     | Number of transactions contained in each block.               | 100           |
-| `AttackStartTime`           | `int64`   | Time step when the attack starts.                             | 20            |
-| `AttackEndTime`             | `int64`   | Time step when the attack ends.                               | 60            |
-| `AttackType`                | `AttackType` | Type of attack to simulate.                                  | GrindingAttack|
-| `AttackSchedule`            | `map[int64]AttackType` | Schedule of attacks with start and end times.               | Initialized by `InitializeAttackSchedule` |
+| Parameter                   | Type      | Description                                                   |
+|-----------------------------|-----------|---------------------------------------------------------------|
+| `NumNodes`                  | `int`     | Total number of nodes in the network                          |
+| `NumOperators`             | `int`     | Total number of operators in the network                      |
+| `NumShards`                 | `int`     | Total number of shards in the network                         |
+| `SimulationTime`            | `int64`   | Total duration of the simulation in time units                |
+| `TimeStep`                  | `int64`   | Simulation advances in increments of this time unit           |
+| `MaliciousNodeRatio`        | `float64` | Percentage of nodes that behave maliciously                   |
+| `LotteryWinProbability`     | `float64` | Probability of an honest node winning the lottery per attempt |
+| `MaliciousNodeMultiplier`   | `int`     | Additional lottery attempts for malicious nodes               |
+| `BlockProductionInterval`   | `int64`   | Time steps between each shard's block production events       |
+| `TransactionsPerBlock`      | `int`     | Number of transactions contained in each block                |
+| `BlockSize`                | `int`     | Size of each block in bytes                                   |
+| `BlockHeaderSize`          | `int`     | Size of block header in bytes                                 |
+| `ERHeaderSize`             | `int`     | Size of ER header in bytes                                    |
+| `ERBodySize`               | `int`     | Size of ER body in bytes                                      |
+| `NetworkBandwidth`         | `int64`   | Network bandwidth in Mbps                                     |
+| `MinNetworkDelayMean`      | `float64` | Minimum mean network delay in milliseconds                    |
+| `MaxNetworkDelayMean`      | `float64` | Maximum mean network delay in milliseconds                    |
+| `MinNetworkDelayStd`       | `float64` | Minimum standard deviation of network delay in milliseconds   |
+| `MaxNetworkDelayStd`       | `float64` | Maximum standard deviation of network delay in milliseconds   |
+| `MinGossipFanout`          | `int`     | Minimum number of nodes to gossip to                         |
+| `MaxGossipFanout`          | `int`     | Maximum number of nodes to gossip to                         |
+| `TimeOut`                  | `int64`   | Timeout for block download in milliseconds                    |
+| `NumBlocksToDownload`      | `int`     | Number of blocks to download                                  |
+| `AttackStartTime`           | `int64`   | Time step when the attack starts                              |
+| `AttackEndTime`             | `int64`   | Time step when the attack ends                                |
+| `AttackType`                | `AttackType` | Type of attack to simulate                                   |
+| `AttackSchedule`            | `map[int64]AttackType` | Schedule of attacks with start and end times                |
 
 ## Metrics and Analysis
 
