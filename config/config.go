@@ -39,20 +39,20 @@ type Config struct {
 
 const (
 	// Simulation parameters
-	SimulationTime = 1200 // Total simulation time units
-	TimeStep       = 1    // Simulation time step
+	SimulationTime = 12000 // Total simulation time units
+	TimeStep       = 1     // Simulation time step
 
 	// Node parameters
-	NumNodes     = 10000
+	NumNodes     = 100_000
 	NumOperators = 10
 	// Shard parameters
-	NumShards = 2
+	NumShards = 1
 
 	// Attack parameters
 	MaliciousNodeRatio      = 0.1 // 10% of nodes are malicious
 	AttackStartTime         = 20
 	AttackEndTime           = 60
-	MaliciousNodeMultiplier = 1000 // Multiplier for malicious nodes in lottery attempts
+	MaliciousNodeMultiplier = 10 // Multiplier for malicious nodes in lottery attempts
 
 	// Lottery parameters
 	LotteryWinProbability = 0.001 // Base probability for winning the lottery
@@ -76,7 +76,7 @@ const (
 	TimeOut             = 2000  // Timeout for block download in milliseconds
 
 	// Download parameters
-	NumBlocksToDownload = 10
+	NumBlocksToDownload = 50
 )
 
 // InitializeAttackSchedule initializes the attack schedule with both start and end times

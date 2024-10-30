@@ -122,7 +122,7 @@ To run the simulation and visualize the results, follow these steps:
    ```
    python plot.py
    ```
-   This script will read the `metrics_report.txt` file, process the data, and generate visualizations of the simulation results.
+   This script will read the `simulation_report.txt` file, process the data, and generate visualizations of the simulation results.
 
 The generated plots will provide visual insights into various aspects of the simulation, such as transaction throughput, block production rates, and the effects of attacks on the network.
 
