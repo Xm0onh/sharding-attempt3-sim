@@ -105,7 +105,7 @@ To run the simulation and visualize the results, follow these steps:
    ```
    go run .
    ```
-   This will execute the simulation and generate a `metrics_report.txt` file with the simulation results.
+   This will execute the simulation and generate a `simulation_report.txt` file with the simulation results.
 
 2. Create a Python virtual environment (optional but recommended):
    ```
