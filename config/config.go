@@ -40,8 +40,8 @@ type Config struct {
 
 const (
 	// Simulation parameters
-	SimulationTime = 12000 // Total simulation time units
-	TimeStep       = 1     // Simulation time step
+	SimulationTime = 120 // Total simulation time units
+	TimeStep       = 1   // Simulation time step
 
 	// Node parameters
 	NumNodes     = 100_000
@@ -74,11 +74,11 @@ const (
 	MaxNetworkDelayStd  = 50.0  // 50ms maximum standard deviation
 	MinGossipFanout     = 4     // Minimum nodes to gossip to
 	MaxGossipFanout     = 8     // Maximum nodes to gossip to
-	MaxP2PConnections   = 32
+	MaxP2PConnections   = 1
 	TimeOut             = 2000 // Timeout for block download in milliseconds
 
 	// Download parameters
-	NumBlocksToDownload = 50
+	NumBlocksToDownload = 10
 )
 
 // InitializeAttackSchedule initializes the attack schedule with both start and end times

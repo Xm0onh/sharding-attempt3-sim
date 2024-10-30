@@ -7,6 +7,7 @@ import (
 	"sharding/event"
 	"sharding/lottery"
 	"sharding/utils"
+	"sync"
 )
 
 type Node struct {
@@ -143,41 +144,76 @@ func (n *Node) LatestBlockHeaderID() int {
 }
 
 func (n *Node) DownloadLatestKBlocks(peers []*Node, currentTime int64) float64 {
-	// Get our latest block header ID
 	latestID := n.LatestBlockHeaderID()
-
-	// Calculate the range of blocks we need to download
 	startID := max(0, latestID-config.NumBlocksToDownload)
-
-	totalDelay := 0.0
-	downloadedBlocks := make(map[int]bool)
-
-	// Try to download blocks from peers
-	for blockID := latestID; blockID > startID; blockID-- {
-		if _, exists := n.Blockchain[blockID]; exists {
-			continue // Skip if we already have this block
-		}
-
-		for _, peer := range peers {
-			if block, exists := peer.Blockchain[blockID]; exists {
-				if !downloadedBlocks[blockID] {
-					delay := utils.SimulateNetworkBlockDownloadDelay()
-					if !peer.IsHonest {
-						delay += float64(config.TimeOut)
-					}
-					totalDelay += delay
-
-					// Only store honest blocks
-					if !block.IsMalicious {
-						n.Blockchain[blockID] = block
-					}
-
-					downloadedBlocks[blockID] = true
-					break // Move to next block once we've downloaded this one
-				}
-			}
-		}
+	counter := 0
+	type downloadResult struct {
+		blockID int
+		block   *block.Block
+		delay   float64
 	}
 
+	resultChan := make(chan downloadResult, config.MaxP2PConnections)
+	var mu sync.Mutex
+	downloadedBlocks := make(map[int]bool)
+	totalDelay := 0.0
+
+	// Process blocks in batches of size MaxP2PConnections
+	for batchStart := latestID; batchStart > startID; batchStart -= config.MaxP2PConnections {
+		counter++
+		batchEnd := max(startID, batchStart-config.MaxP2PConnections)
+		activeDLs := 0
+		batchMaxDelay := 0.0
+
+		// Start downloads for this batch
+		for blockID := batchStart; blockID > batchEnd; blockID-- {
+			if _, exists := n.Blockchain[blockID]; exists {
+				continue
+			}
+
+			activeDLs++
+			go func(bid int) {
+				result := downloadResult{blockID: bid, delay: -1}
+
+				for _, peer := range peers {
+					mu.Lock()
+					if downloadedBlocks[bid] {
+						mu.Unlock()
+						resultChan <- result
+						return
+					}
+					mu.Unlock()
+
+					if block, exists := peer.Blockchain[bid]; exists {
+						delay := utils.SimulateNetworkBlockDownloadDelay()
+						if !peer.IsHonest {
+							delay += float64(config.TimeOut)
+						}
+
+						result.block = block
+						result.delay = delay
+						break
+					}
+				}
+				resultChan <- result
+			}(blockID)
+		}
+
+		// Wait for all downloads in this batch to complete
+		for i := 0; i < activeDLs; i++ {
+			result := <-resultChan
+			if result.delay > 0 {
+				mu.Lock()
+				downloadedBlocks[result.blockID] = true
+				if !result.block.IsMalicious {
+					n.Blockchain[result.blockID] = result.block
+				}
+				batchMaxDelay = max(batchMaxDelay, result.delay)
+				mu.Unlock()
+			}
+		}
+
+		totalDelay += batchMaxDelay
+	}
 	return totalDelay
 }
