@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sharding/config"
 	"sharding/node"
 	"sharding/shard"
 )
@@ -180,6 +181,10 @@ func CalculatePercentage(part, total int) float64 {
 }
 
 func writeTimeWindowMetrics(w io.Writer, title string, metrics TimeWindowMetrics) {
+	fmt.Fprintf(w, "   Size of each Transaction in bytes: ~%d\n", 100)
+	fmt.Fprintf(w, "   Number of transactions per block: %d\n", config.TransactionsPerBlock)
+	fmt.Fprintf(w, "   Size of each Block in kilo bytes: %d\n", config.BlockSize/1000)
+	fmt.Fprintf(w, "\n")
 	fmt.Fprintf(w, "%s:\n", title)
 
 	// Add block production statistics
@@ -195,14 +200,25 @@ func writeTimeWindowMetrics(w io.Writer, title string, metrics TimeWindowMetrics
 	fmt.Fprintf(w, "\n") // Add spacing
 
 	// Original metrics
-	fmt.Fprintf(w, "Simulation Metrics:\n")
-	fmt.Fprintf(w, "  Total Events: %d\n", metrics.TotalEvents)
-	fmt.Fprintf(w, "  Average Response Time: %.2fms\n", metrics.AverageResponseTime)
-	fmt.Fprintf(w, "  Error Rate: %.2f%%\n", metrics.ErrorRate*100)
+	// fmt.Fprintf(w, "Simulation Metrics:\n")
+	// fmt.Fprintf(w, "  Total Events: %d\n", metrics.TotalEvents)
+	// fmt.Fprintf(w, "  Average Response Time: %.2fms\n", metrics.AverageResponseTime)
+	// fmt.Fprintf(w, "  Error Rate: %.2f%%\n", metrics.ErrorRate*100)
 
 	// Network metrics
 	fmt.Fprintf(w, "\nNetwork Metrics:\n")
 	fmt.Fprintf(w, "  Average Block Broadcast Delay: %.2fms\n", metrics.NetworkMetrics.AverageBlockDelay)
 	fmt.Fprintf(w, "  Average Block Header Delay: %.2fms\n", metrics.NetworkMetrics.AverageHeaderDelay)
 	fmt.Fprintf(w, "  Average Block Download Delay: %.2fms\n\n", metrics.NetworkMetrics.AverageDownloadDelay)
+
+	// Add TPS calculation
+	totalBlocks := 0
+	for _, stats := range metrics.ShardStats {
+		totalBlocks += stats.HonestBlocks
+	}
+	totalTransactions := totalBlocks * config.TransactionsPerBlock
+	fmt.Println("Total txn:", totalTransactions)
+	tps := float64(totalTransactions) / float64(config.SimulationTime)
+	fmt.Fprintf(w, "Performance Metrics:\n")
+	fmt.Fprintf(w, "  Transactions Per Second (TPS): %.2f\n\n", tps)
 }

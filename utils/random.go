@@ -24,7 +24,7 @@ func SimulateNetworkBlockDelay() float64 {
 
 		// Transmission delay (size in bits / bandwidth in bps)
 		transmissionDelay := (float64(cfg.BlockSize) * 8.0) /
-			(float64(cfg.NetworkBandwidth) * 1000000.0)
+			(float64(cfg.NetworkBandwidth) * 1000000.0) * 1000.0
 
 		totalDelay += hopLatency + transmissionDelay
 	}
@@ -49,7 +49,7 @@ func SimulateNetworkBlockHeaderDelay() float64 {
 
 		// Transmission delay (size in bits / bandwidth in bps)
 		transmissionDelay := (float64(cfg.BlockHeaderSize) * 8.0) /
-			(float64(cfg.NetworkBandwidth) * 1000000.0)
+			(float64(cfg.NetworkBandwidth) * 1000000.0) * 1000.0
 
 		totalDelay += hopLatency + transmissionDelay
 	}
@@ -66,7 +66,7 @@ func SimulateNetworkBlockDownloadDelay() float64 {
 	delay := networkDelayMean + rand.NormFloat64()*networkDelayStd/1000.0
 
 	// Add transmission delay based on block size
-	transmissionDelay := (float64(cfg.BlockSize) * 8.0) / (float64(cfg.NetworkBandwidth) * 1000000.0)
+	transmissionDelay := (float64(cfg.BlockSize) * 8.0) / (float64(cfg.NetworkBandwidth) * 1000000.0) * 1000.0
 
 	return delay + transmissionDelay
 }

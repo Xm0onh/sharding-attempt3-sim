@@ -3,6 +3,10 @@ package config
 type AttackType int
 
 const (
+	TxnSize = 100
+)
+
+const (
 	NoAttack AttackType = iota
 	GrindingAttack
 )
@@ -40,11 +44,11 @@ type Config struct {
 
 const (
 	// Simulation parameters
-	SimulationTime = 120 // Total simulation time units
-	TimeStep       = 1   // Simulation time step
+	SimulationTime = 120_000 // Total simulation time units
+	TimeStep       = 1       // Simulation time step
 
 	// Node parameters
-	NumNodes     = 10_000
+	NumNodes     = 100_000
 	NumOperators = 10
 	// Shard parameters
 	NumShards = 1
@@ -59,12 +63,12 @@ const (
 	LotteryWinProbability = 0.001 // Base probability for winning the lottery
 
 	// Block parameters
-	BlockProductionInterval = 6              // Shards produce a block every 6 time steps
-	TransactionsPerBlock    = 100            // Each block contains 100 transactions
-	BlockSize               = 10_000_000_000 // Block size in bytes
-	BlockHeaderSize         = 1000           // Increased to more realistic size in bytes
-	ERHeaderSize            = 1000           // ER header size in bytes
-	ERBodySize              = 33000          // ER body size in bytes
+	BlockProductionInterval = 6                              // Shards produce a block every 6 time steps
+	TransactionsPerBlock    = 10000                          // Each block contains 100 transactions
+	BlockSize               = TxnSize * TransactionsPerBlock // Block size in bytes
+	BlockHeaderSize         = 100                            // Increased to more realistic size in bytes
+	ERHeaderSize            = 1000                           // ER header size in bytes
+	ERBodySize              = 33000                          // ER body size in bytes
 
 	// Network simulation parameters
 	NetworkBandwidth    = 10    // Network bandwidth in Mbps
@@ -74,11 +78,11 @@ const (
 	MaxNetworkDelayStd  = 50.0  // 50ms maximum standard deviation
 	MinGossipFanout     = 4     // Minimum nodes to gossip to
 	MaxGossipFanout     = 8     // Maximum nodes to gossip to
-	MaxP2PConnections   = 10
+	MaxP2PConnections   = 1
 	TimeOut             = 2000 // Timeout for block download in milliseconds
 
 	// Download parameters
-	NumBlocksToDownload = 10
+	NumBlocksToDownload = 100
 )
 
 // InitializeAttackSchedule initializes the attack schedule with both start and end times

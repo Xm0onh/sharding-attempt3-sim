@@ -136,6 +136,7 @@ func (sim *Simulation) Run() {
 		e := heap.Pop(sim.EventQueue).(*event.Event)
 		sim.CurrentTime = int64(e.Timestamp)
 		sim.processEvent(e)
+		fmt.Println("Current time", sim.CurrentTime)
 	}
 
 	// Network delay for each shard
