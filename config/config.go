@@ -44,14 +44,14 @@ type Config struct {
 
 const (
 	// Simulation parameters
-	SimulationTime = 120_000 // Total simulation time units
-	TimeStep       = 1       // Simulation time step
+	SimulationTime = 5_000 // Total simulation time units
+	TimeStep       = 1     // Simulation time step
 
 	// Node parameters
-	NumNodes     = 100_000
-	NumOperators = 10
+	NumNodes     = 1_000
+	NumOperators = 50
 	// Shard parameters
-	NumShards = 1
+	NumShards = 2
 
 	// Attack parameters
 	MaliciousNodeRatio      = 0.1 // 10% of nodes are malicious
@@ -60,13 +60,13 @@ const (
 	MaliciousNodeMultiplier = 0 // Multiplier for malicious nodes in lottery attempts
 
 	// Lottery parameters
-	LotteryWinProbability = 0.001 // Base probability for winning the lottery
+	LotteryWinProbability = 0.01 // Base probability for winning the lottery
 
 	// Block parameters
 	BlockProductionInterval = 6                              // Shards produce a block every 6 time steps
-	TransactionsPerBlock    = 10000                          // Each block contains 100 transactions
+	TransactionsPerBlock    = 6500                           // Each block contains 100 transactions
 	BlockSize               = TxnSize * TransactionsPerBlock // Block size in bytes
-	BlockHeaderSize         = 100                            // Increased to more realistic size in bytes
+	BlockHeaderSize         = 1000                           // Increased to more realistic size in bytes
 	ERHeaderSize            = 1000                           // ER header size in bytes
 	ERBodySize              = 33000                          // ER body size in bytes
 
@@ -78,7 +78,7 @@ const (
 	MaxNetworkDelayStd  = 50.0  // 50ms maximum standard deviation
 	MinGossipFanout     = 4     // Minimum nodes to gossip to
 	MaxGossipFanout     = 8     // Maximum nodes to gossip to
-	MaxP2PConnections   = 1
+	MaxP2PConnections   = 2
 	TimeOut             = 2000 // Timeout for block download in milliseconds
 
 	// Download parameters

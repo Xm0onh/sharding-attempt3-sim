@@ -7,14 +7,14 @@ import (
 )
 
 // SimulateNetworkBlockDelay calculates network delay for full block propagation
-func SimulateNetworkBlockDelay() float64 {
+func SimulateNetworkBlockDelay(NumOperators int) float64 {
 	// Randomly choose network parameters
 	networkDelayMean := cfg.MinNetworkDelayMean + rand.Float64()*(cfg.MaxNetworkDelayMean-cfg.MinNetworkDelayMean)
 	networkDelayStd := cfg.MinNetworkDelayStd + rand.Float64()*(cfg.MaxNetworkDelayStd-cfg.MinNetworkDelayStd)
 	gossipFanout := cfg.MinGossipFanout + rand.Intn(cfg.MaxGossipFanout-cfg.MinGossipFanout+1)
 
 	// Calculate number of hops in gossip protocol
-	numHops := math.Ceil(math.Log(float64(cfg.NumNodes)) / math.Log(float64(gossipFanout)))
+	numHops := math.Ceil(math.Log(float64(NumOperators)) / math.Log(float64(gossipFanout)))
 
 	totalDelay := 0.0
 	for i := 0.0; i < numHops; i++ {

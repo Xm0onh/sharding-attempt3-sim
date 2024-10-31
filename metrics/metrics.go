@@ -10,12 +10,12 @@ import (
 )
 
 type NetworkMetrics struct {
-	BlockBroadcastDelays []float64
+	BlockBroadcastDelays map[int][]float64
 	BlockHeaderDelays    []float64
-	BlockDownloadDelays  []float64
-	AverageBlockDelay    float64
+	BlockDownloadDelays  map[int][]float64
+	AverageBlockDelay    map[int]float64
 	AverageHeaderDelay   float64
-	AverageDownloadDelay float64
+	AverageDownloadDelay map[int]float64
 }
 
 type ShardMetrics struct {
@@ -45,6 +45,12 @@ func NewMetricsCollector() *MetricsCollector {
 	return &MetricsCollector{
 		CurrentMetrics: TimeWindowMetrics{
 			ShardStats: make(map[int]*ShardMetrics),
+			NetworkMetrics: NetworkMetrics{
+				BlockBroadcastDelays: make(map[int][]float64),
+				BlockDownloadDelays:  make(map[int][]float64),
+				AverageBlockDelay:    make(map[int]float64),
+				AverageDownloadDelay: make(map[int]float64),
+			},
 		},
 		Logs: make([]string, 0),
 	}
@@ -61,10 +67,13 @@ func (mc *MetricsCollector) Collect(
 	maliciousRotations int,
 ) {
 	// Process network delays
-	for _, delays := range blockDelays {
+	for shardID, delays := range blockDelays {
+		if mc.CurrentMetrics.NetworkMetrics.BlockBroadcastDelays[shardID] == nil {
+			mc.CurrentMetrics.NetworkMetrics.BlockBroadcastDelays[shardID] = make([]float64, 0)
+		}
 		for _, delay := range delays {
-			mc.CurrentMetrics.NetworkMetrics.BlockBroadcastDelays = append(
-				mc.CurrentMetrics.NetworkMetrics.BlockBroadcastDelays,
+			mc.CurrentMetrics.NetworkMetrics.BlockBroadcastDelays[shardID] = append(
+				mc.CurrentMetrics.NetworkMetrics.BlockBroadcastDelays[shardID],
 				float64(delay),
 			)
 		}
@@ -79,10 +88,14 @@ func (mc *MetricsCollector) Collect(
 		}
 	}
 
-	for _, delays := range downloadDelays {
+	// Update download delays processing
+	for shardID, delays := range downloadDelays {
+		if mc.CurrentMetrics.NetworkMetrics.BlockDownloadDelays[shardID] == nil {
+			mc.CurrentMetrics.NetworkMetrics.BlockDownloadDelays[shardID] = make([]float64, 0)
+		}
 		for _, delay := range delays {
-			mc.CurrentMetrics.NetworkMetrics.BlockDownloadDelays = append(
-				mc.CurrentMetrics.NetworkMetrics.BlockDownloadDelays,
+			mc.CurrentMetrics.NetworkMetrics.BlockDownloadDelays[shardID] = append(
+				mc.CurrentMetrics.NetworkMetrics.BlockDownloadDelays[shardID],
 				float64(delay),
 			)
 		}
@@ -125,12 +138,15 @@ func (mc *MetricsCollector) Collect(
 }
 
 func (mc *MetricsCollector) calculateAverages() {
-	if len(mc.CurrentMetrics.NetworkMetrics.BlockBroadcastDelays) > 0 {
-		sum := 0.0
-		for _, d := range mc.CurrentMetrics.NetworkMetrics.BlockBroadcastDelays {
-			sum += d
+	// Calculate broadcast delays per shard
+	for shardID, delays := range mc.CurrentMetrics.NetworkMetrics.BlockBroadcastDelays {
+		if len(delays) > 0 {
+			sum := 0.0
+			for _, d := range delays {
+				sum += d
+			}
+			mc.CurrentMetrics.NetworkMetrics.AverageBlockDelay[shardID] = sum / float64(len(delays))
 		}
-		mc.CurrentMetrics.NetworkMetrics.AverageBlockDelay = sum / float64(len(mc.CurrentMetrics.NetworkMetrics.BlockBroadcastDelays))
 	}
 
 	if len(mc.CurrentMetrics.NetworkMetrics.BlockHeaderDelays) > 0 {
@@ -141,12 +157,15 @@ func (mc *MetricsCollector) calculateAverages() {
 		mc.CurrentMetrics.NetworkMetrics.AverageHeaderDelay = sum / float64(len(mc.CurrentMetrics.NetworkMetrics.BlockHeaderDelays))
 	}
 
-	if len(mc.CurrentMetrics.NetworkMetrics.BlockDownloadDelays) > 0 {
-		sum := 0.0
-		for _, d := range mc.CurrentMetrics.NetworkMetrics.BlockDownloadDelays {
-			sum += d
+	// Calculate download delays per shard
+	for shardID, delays := range mc.CurrentMetrics.NetworkMetrics.BlockDownloadDelays {
+		if len(delays) > 0 {
+			sum := 0.0
+			for _, d := range delays {
+				sum += d
+			}
+			mc.CurrentMetrics.NetworkMetrics.AverageDownloadDelay[shardID] = sum / float64(len(delays))
 		}
-		mc.CurrentMetrics.NetworkMetrics.AverageDownloadDelay = sum / float64(len(mc.CurrentMetrics.NetworkMetrics.BlockDownloadDelays))
 	}
 }
 
@@ -207,9 +226,16 @@ func writeTimeWindowMetrics(w io.Writer, title string, metrics TimeWindowMetrics
 
 	// Network metrics
 	fmt.Fprintf(w, "\nNetwork Metrics:\n")
-	fmt.Fprintf(w, "  Average Block Broadcast Delay: %.2fms\n", metrics.NetworkMetrics.AverageBlockDelay)
+	fmt.Fprintf(w, "  Average Block Broadcast Delay per Shard:\n")
+	for shardID, avgDelay := range metrics.NetworkMetrics.AverageBlockDelay {
+		fmt.Fprintf(w, "    Shard %d: %.2fms\n", shardID, avgDelay)
+	}
 	fmt.Fprintf(w, "  Average Block Header Delay: %.2fms\n", metrics.NetworkMetrics.AverageHeaderDelay)
-	fmt.Fprintf(w, "  Average Block Download Delay: %.2fms\n\n", metrics.NetworkMetrics.AverageDownloadDelay)
+	fmt.Fprintf(w, "  Average Block Download Delay per Shard:\n")
+	for shardID, avgDelay := range metrics.NetworkMetrics.AverageDownloadDelay {
+		fmt.Fprintf(w, "    Shard %d: %.2fms\n", shardID, avgDelay)
+	}
+	fmt.Fprintf(w, "\n")
 
 	// Add TPS calculation
 	totalBlocks := 0

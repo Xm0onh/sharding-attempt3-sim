@@ -304,7 +304,6 @@ func (sim *Simulation) handleMessageEvent(e *event.Event) {
 }
 
 func (sim *Simulation) handleMetricsEvent() {
-	fmt.Println("Number of shard blocks", len(sim.Shards[0].Blocks))
 	sim.Metrics.Collect(
 		sim.CurrentTime,
 		sim.Shards,
