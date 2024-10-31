@@ -16,8 +16,6 @@ import (
 /*
 TODO -
 ---> Distribute the nodes evenly across shards
----> DOWNLOAD LATEST K BLOCKS
----> Broadcast block body to operators within the shard ONLY
 */
 type Simulation struct {
 	Config                             config.Config
@@ -136,7 +134,7 @@ func (sim *Simulation) Run() {
 		e := heap.Pop(sim.EventQueue).(*event.Event)
 		sim.CurrentTime = int64(e.Timestamp)
 		sim.processEvent(e)
-		fmt.Println("Current time", sim.CurrentTime)
+		// fmt.Println("Current time", sim.CurrentTime)
 	}
 
 	// Network delay for each shard
@@ -200,7 +198,8 @@ func (sim *Simulation) processLotteryWin(n *node.Node, newShardID int) {
 		newShard := sim.Shards[newShardID]
 		newShard.AddNode(n)
 		n.AssignedShard = newShardID
-		sim.NextBlockProducer[newShardID][n.ID] = false
+		sim.NextBlockProducer[newShardID][len(sim.NextBlockProducer[newShardID])] = false
+
 	}
 
 }
@@ -269,8 +268,7 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 
 		log := fmt.Sprintf("[Block Production] Node %d produced block %d at time %d", producerNode.ID, blk.ID, sim.CurrentTime)
 		sim.Logs = append(sim.Logs, log)
-		sim.NextBlockProducer[shardID][producerNode.ID] = true
-
+		sim.NextBlockProducer[shardID][blk.ID] = true
 		// Broadcast block header to all nodes in the whole network
 		events, delay = producerNode.BroadcastBlockHeader(blkHeader, sim.getNodes(), sim.CurrentTime)
 
