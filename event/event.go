@@ -8,8 +8,8 @@ type EventType int
 
 const (
 	LotteryEvent EventType = iota
-	MessageEvent
 	ShardBlockProductionEvent
+	MessageEvent
 	MetricsEvent
 )
 

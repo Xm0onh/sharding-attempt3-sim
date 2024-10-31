@@ -183,10 +183,10 @@ func (mc *MetricsCollector) GenerateReport() error {
 	writeTimeWindowMetrics(f, "Simulation Metrics", mc.CurrentMetrics)
 
 	// Write logs
-	// fmt.Fprintln(f, "=== Event Logs ===")
-	// for _, log := range mc.Logs {
-	// 	fmt.Fprintln(f, log)
-	// }
+	fmt.Fprintln(f, "=== Event Logs ===")
+	for _, log := range mc.Logs {
+		fmt.Fprintln(f, log)
+	}
 
 	return nil
 }
