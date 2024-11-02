@@ -153,6 +153,17 @@ func (n *Node) DownloadLatestKBlocks(peers []*Node, currentTime int64) float64 {
 		delay   float64
 	}
 
+	// Split peers into operators and regular nodes
+	operators := make([]*Node, 0)
+	regularPeers := make([]*Node, 0)
+	for _, peer := range peers {
+		if peer.IsOperator {
+			operators = append(operators, peer)
+		} else {
+			regularPeers = append(regularPeers, peer)
+		}
+	}
+
 	resultChan := make(chan downloadResult, config.MaxP2PConnections)
 	var mu sync.Mutex
 	downloadedBlocks := make(map[int]bool)
@@ -175,7 +186,8 @@ func (n *Node) DownloadLatestKBlocks(peers []*Node, currentTime int64) float64 {
 			go func(bid int) {
 				result := downloadResult{blockID: bid, delay: -1}
 
-				for _, peer := range peers {
+				// Try operators first
+				for _, peer := range operators {
 					mu.Lock()
 					if downloadedBlocks[bid] {
 						mu.Unlock()
@@ -189,10 +201,32 @@ func (n *Node) DownloadLatestKBlocks(peers []*Node, currentTime int64) float64 {
 						if !peer.IsHonest {
 							delay += float64(config.TimeOut)
 						}
-
 						result.block = block
 						result.delay = delay
 						break
+					}
+				}
+
+				// If block not found with operators, try regular peers
+				if result.delay == -1 {
+					for _, peer := range regularPeers {
+						mu.Lock()
+						if downloadedBlocks[bid] {
+							mu.Unlock()
+							resultChan <- result
+							return
+						}
+						mu.Unlock()
+
+						if block, exists := peer.Blockchain[bid]; exists {
+							delay := utils.SimulateNetworkBlockDownloadDelay()
+							if !peer.IsHonest {
+								delay += float64(config.TimeOut)
+							}
+							result.block = block
+							result.delay = delay
+							break
+						}
 					}
 				}
 				resultChan <- result
