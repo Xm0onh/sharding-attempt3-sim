@@ -19,5 +19,6 @@ func WinLottery(isHonest bool, resources int, currentTime int64, attackStartTime
 }
 
 func AssignShard(nodeID int, timestamp int64, numShards int) int {
-	return (nodeID + int(timestamp)) % numShards
+	// Simple random shard assignment
+	return rand.Intn(numShards)
 }
