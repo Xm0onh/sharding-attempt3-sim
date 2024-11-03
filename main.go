@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"net/http"
 	"sharding/config"
@@ -15,9 +16,18 @@ import (
 var (
 	metricsCollector *metrics.MetricsCollector
 	simulationMutex  sync.Mutex
+	localMode        = flag.Bool("local", false, "Run in local mode without server")
 )
 
 func main() {
+	// Parse command line flags
+	flag.Parse()
+
+	if *localMode {
+		runLocalSimulation()
+		return
+	}
+
 	// Setup HTTP routes
 	http.HandleFunc("/simulate", handleSimulation)
 	http.HandleFunc("/simulate-with-config", handleSimulationWithConfig)
@@ -231,4 +241,61 @@ func handleSimulation(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		return
 	}
+}
+
+func runLocalSimulation() {
+	// Initialize metrics collector
+	metricsCollector = metrics.NewMetricsCollector()
+
+	// Initialize simulation with default config
+	cfg := config.Config{
+		NumNodes:                config.NumNodes,
+		NumShards:               config.NumShards,
+		NumOperators:            config.NumOperators,
+		SimulationTime:          config.SimulationTime,
+		TimeStep:                config.TimeStep,
+		MaliciousNodeRatio:      config.MaliciousNodeRatio,
+		LotteryWinProbability:   config.LotteryWinProbability,
+		MaliciousNodeMultiplier: config.MaliciousNodeMultiplier,
+		BlockProductionInterval: config.BlockProductionInterval,
+		TransactionsPerBlock:    config.TransactionsPerBlock,
+		AttackSchedule:          config.InitializeAttackSchedule(),
+		BlockSize:               config.BlockSize,
+		BlockHeaderSize:         config.BlockHeaderSize,
+		ERHeaderSize:            config.ERHeaderSize,
+		ERBodySize:              config.ERBodySize,
+		NetworkBandwidth:        config.NetworkBandwidth,
+		MinNetworkDelayMean:     config.MinNetworkDelayMean,
+		MaxNetworkDelayMean:     config.MaxNetworkDelayMean,
+		MinNetworkDelayStd:      config.MinNetworkDelayStd,
+		MaxNetworkDelayStd:      config.MaxNetworkDelayStd,
+		MinGossipFanout:         config.MinGossipFanout,
+		MaxGossipFanout:         config.MaxGossipFanout,
+		MaxP2PConnections:       config.MaxP2PConnections,
+		TimeOut:                 config.TimeOut,
+		NumBlocksToDownload:     config.NumBlocksToDownload,
+	}
+
+	// Create and run simulation
+	sim := simulation.NewSimulation(cfg, metricsCollector)
+	fmt.Println("Local simulation started.")
+	sim.Run()
+	fmt.Println("Local simulation completed.")
+
+	// Generate metrics report
+	if err := metricsCollector.GenerateReport(); err != nil {
+		fmt.Printf("Error generating metrics report: %v\n", err)
+	} else {
+		fmt.Println("Metrics report generated.")
+	}
+
+	// Get and print the metrics response
+	response := metricsCollector.GetSimulationResponse()
+	responseJSON, err := json.MarshalIndent(response, "", "  ")
+	if err != nil {
+		fmt.Printf("Error marshaling response: %v\n", err)
+		return
+	}
+	fmt.Println("Simulation Results:")
+	fmt.Println(string(responseJSON))
 }
