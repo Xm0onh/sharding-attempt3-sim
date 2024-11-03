@@ -201,7 +201,7 @@ func handleSimulation(w http.ResponseWriter, r *http.Request) {
 		MaxGossipFanout:         config.MaxGossipFanout,
 		MaxP2PConnections:       config.MaxP2PConnections,
 		TimeOut:                 config.TimeOut,
-		NumBlocksToDownload:     100,
+		NumBlocksToDownload:     config.NumBlocksToDownload,
 	}
 
 	// Create a new simulation instance with metrics collector

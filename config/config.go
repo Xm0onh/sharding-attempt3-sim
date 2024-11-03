@@ -82,6 +82,7 @@ const (
 	TimeOut             = 2000 // Timeout for block download in milliseconds
 
 	// Download parameters
+	NumBlocksToDownload = 100
 )
 
 // InitializeAttackSchedule initializes the attack schedule with both start and end times
