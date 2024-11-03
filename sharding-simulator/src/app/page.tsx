@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import SimulationForm from './components/SimulationForm';
 import SimulationResults from './components/SimulationResults';
 import type { SimulationConfig, SimulationResults as Results } from './types';
@@ -10,17 +10,50 @@ export default function Home() {
   const [results, setResults] = useState<Results | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const runSimulation = async (config?: SimulationConfig) => {
+  const runSimulation = async (config: SimulationConfig) => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8080/simulate', {
-        method: 'GET',
+      
+      const response = await fetch('http://localhost:8080/simulate-with-config', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        }
+        },
+        body: JSON.stringify({
+          numNodes: config.numNodes,
+          numShards: config.numShards,
+          numOperators: config.numOperators,
+          simulationTime: config.simulationTime,
+          timeStep: config.timeStep,
+          maliciousNodeRatio: config.maliciousNodeRatio,
+          lotteryWinProbability: config.lotteryWinProbability,
+          maliciousNodeMultiplier: config.maliciousNodeMultiplier,
+          blockProductionInterval: config.blockProductionInterval,
+          transactionsPerBlock: config.transactionsPerBlock,
+          blockSize: config.blockSize,
+          blockHeaderSize: config.blockHeaderSize,
+          erHeaderSize: config.erHeaderSize,
+          erBodySize: config.erBodySize,
+          networkBandwidth: config.networkBandwidth,
+          minNetworkDelayMean: config.minNetworkDelayMean,
+          maxNetworkDelayMean: config.maxNetworkDelayMean,
+          minNetworkDelayStd: config.minNetworkDelayStd,
+          maxNetworkDelayStd: config.maxNetworkDelayStd,
+          minGossipFanout: config.minGossipFanout,
+          maxGossipFanout: config.maxGossipFanout,
+          maxP2PConnections: config.maxP2PConnections,
+          timeOut: config.timeOut,
+          numBlocksToDownload: config.numBlocksToDownload,
+          attackStartTime: config.attackStartTime,
+          attackEndTime: config.attackEndTime
+        })
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
-      console.log('Received data:', data);
       setResults(data);
     } catch (error) {
       console.error('Error fetching simulation results:', error);
@@ -28,10 +61,6 @@ export default function Home() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    runSimulation();
-  }, []);
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
