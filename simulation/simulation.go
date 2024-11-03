@@ -34,14 +34,14 @@ type Simulation struct {
 	NextBlockProducer                  map[int]map[int]bool
 }
 
-func NewSimulation(cfg config.Config) *Simulation {
+func NewSimulation(cfg config.Config, metrics *metrics.MetricsCollector) *Simulation {
 	sim := &Simulation{
 		Config:                      cfg,
 		Nodes:                       make(map[int]*node.Node),
 		Operators:                   make(map[int]*node.Node),
 		Shards:                      make(map[int]*shard.Shard),
 		EventQueue:                  event.NewEventQueue(),
-		Metrics:                     metrics.NewMetricsCollector(),
+		Metrics:                     metrics,
 		CurrentTime:                 0,
 		NetworkBlockBroadcastDelays: make(map[int][]int64),
 		NetworkBlockHeaderDelays:    make(map[int][]int64),

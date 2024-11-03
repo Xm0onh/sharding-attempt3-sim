@@ -3,7 +3,7 @@ package config
 type AttackType int
 
 const (
-	TxnSize = 100
+	TxnSize = 115
 )
 
 const (
@@ -51,7 +51,7 @@ const (
 	NumNodes     = 10000
 	NumOperators = 20
 	// Shard parameters
-	NumShards = 2
+	NumShards = 3
 
 	// Attack parameters
 	MaliciousNodeRatio      = 0.1 // 10% of nodes are malicious

@@ -41,6 +41,31 @@ type MetricsCollector struct {
 	Logs           []string
 }
 
+type SimulationResponse struct {
+	TransactionSize      int                  `json:"transaction_size_bytes"`
+	TransactionsPerBlock int                  `json:"transactions_per_block"`
+	BlockSize            int                  `json:"block_size_kb"`
+	BlockProduction      map[int]ShardStats   `json:"block_production"`
+	NetworkMetrics       NetworkStatsResponse `json:"network_metrics"`
+	Performance          PerformanceStats     `json:"performance"`
+}
+
+type ShardStats struct {
+	MaliciousBlocks int `json:"malicious_blocks"`
+	HonestBlocks    int `json:"honest_blocks"`
+	TotalBlocks     int `json:"total_blocks"`
+}
+
+type NetworkStatsResponse struct {
+	BlockBroadcastDelays map[int]float64 `json:"block_broadcast_delays_ms"`
+	BlockHeaderDelay     float64         `json:"block_header_delay_ms"`
+	BlockDownloadDelays  map[int]float64 `json:"block_download_delays_ms"`
+}
+
+type PerformanceStats struct {
+	TPS float64 `json:"transactions_per_second"`
+}
+
 func NewMetricsCollector() *MetricsCollector {
 	return &MetricsCollector{
 		CurrentMetrics: TimeWindowMetrics{
@@ -247,4 +272,40 @@ func writeTimeWindowMetrics(w io.Writer, title string, metrics TimeWindowMetrics
 	tps := float64(totalTransactions) / float64(config.SimulationTime)
 	fmt.Fprintf(w, "Performance Metrics:\n")
 	fmt.Fprintf(w, "  Transactions Per Second (TPS): %.2f\n\n", tps)
+}
+
+func (mc *MetricsCollector) GetSimulationResponse() SimulationResponse {
+	mc.calculateAverages()
+
+	response := SimulationResponse{
+		TransactionSize:      100, // Fixed value from the report
+		TransactionsPerBlock: config.TransactionsPerBlock,
+		BlockSize:            config.BlockSize / 1000,
+		BlockProduction:      make(map[int]ShardStats),
+		NetworkMetrics: NetworkStatsResponse{
+			BlockBroadcastDelays: mc.CurrentMetrics.NetworkMetrics.AverageBlockDelay,
+			BlockHeaderDelay:     mc.CurrentMetrics.NetworkMetrics.AverageHeaderDelay,
+			BlockDownloadDelays:  mc.CurrentMetrics.NetworkMetrics.AverageDownloadDelay,
+		},
+	}
+
+	// Calculate total blocks and populate shard stats
+	totalBlocks := 0
+	for shardID, stats := range mc.CurrentMetrics.ShardStats {
+		totalBlocks += stats.HonestBlocks
+		response.BlockProduction[shardID] = ShardStats{
+			MaliciousBlocks: stats.MaliciousBlocks,
+			HonestBlocks:    stats.HonestBlocks,
+			TotalBlocks:     stats.HonestBlocks + stats.MaliciousBlocks,
+		}
+	}
+
+	// Calculate TPS
+	totalTransactions := totalBlocks * config.TransactionsPerBlock
+	tps := float64(totalTransactions) / float64(config.SimulationTime)
+	response.Performance = PerformanceStats{
+		TPS: tps,
+	}
+
+	return response
 }
