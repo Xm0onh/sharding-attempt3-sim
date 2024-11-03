@@ -51,6 +51,11 @@ export default function SimulationForm({ onSubmit, loading }: Props) {
     numBlocksToDownload: 100
   });
 
+  const [floatInputs, setFloatInputs] = useState({
+    lotteryWinProbability: config.lotteryWinProbability.toString(),
+    maliciousNodeRatio: config.maliciousNodeRatio.toString()
+  });
+
   const handleNumberChange = (value: number, key: keyof SimulationConfig) => {
     setConfig(prev => ({ ...prev, [key]: value }));
   };
@@ -60,44 +65,83 @@ export default function SimulationForm({ onSubmit, loading }: Props) {
     value: number,
     unit: string,
     key: keyof SimulationConfig
-  ) => (
-    <Box>
-      <Text color="gray.400" fontSize="sm" mb={2}>{label}</Text>
-      <NumberInput
-        value={value}
-        onChange={(_, val) => handleNumberChange(val, key)}
-        min={0}
-        bg="gray.800"
-        borderRadius="md"
-        borderWidth="1px"
-        borderColor={key === 'numShards' ? "blue.400" : "transparent"}
-      >
-        <NumberInputField
-          height="48px"
-          color="white"
-          fontSize="xl"
-          fontWeight="medium"
-          border="none"
-          _focus={{
-            borderColor: "blue.400",
-            boxShadow: "none"
-          }}
-        />
-        <NumberInputStepper>
-          <NumberIncrementStepper borderColor="gray.700" color="gray.400" />
-          <NumberDecrementStepper borderColor="gray.700" color="gray.400" />
-        </NumberInputStepper>
-      </NumberInput>
-      <Text color="gray.500" fontSize="xs" mt={1}>
-        {value.toLocaleString()} {unit}
-      </Text>
-    </Box>
-  );
+  ) => {
+    const needsFloatHandling = key === 'lotteryWinProbability' || key === 'maliciousNodeRatio';
+    
+    return (
+      <Box>
+        <Text color="gray.400" fontSize="sm" mb={2}>{label}</Text>
+        {needsFloatHandling ? (
+          <NumberInput
+            value={floatInputs[key]}
+            onChange={(valueString) => {
+              setFloatInputs(prev => ({
+                ...prev,
+                [key]: valueString
+              }));
+            }}
+            bg="gray.800"
+            borderRadius="md"
+            borderWidth="1px"
+            borderColor={['numShards', 'maliciousNodeRatio', 'lotteryWinProbability'].includes(key) ? "blue.400" : "transparent"}
+          >
+            <NumberInputField
+              height="48px"
+              color="white"
+              fontSize="xl"
+              fontWeight="medium"
+              border="none"
+              _focus={{
+                borderColor: "blue.400",
+                boxShadow: "none"
+              }}
+            />
+          </NumberInput>
+        ) : (
+          <NumberInput
+            value={value}
+            onChange={(_, val) => handleNumberChange(val, key)}
+            min={0}
+            bg="gray.800"
+            borderRadius="md"
+            borderWidth="1px"
+            borderColor={['numShards', 'maliciousNodeRatio', 'lotteryWinProbability'].includes(key) ? "blue.400" : "transparent"}
+          >
+            <NumberInputField
+              height="48px"
+              color="white"
+              fontSize="xl"
+              fontWeight="medium"
+              border="none"
+              _focus={{
+                borderColor: "blue.400",
+                boxShadow: "none"
+              }}
+            />
+            <NumberInputStepper>
+              <NumberIncrementStepper borderColor="gray.700" color="gray.400" />
+              <NumberDecrementStepper borderColor="gray.700" color="gray.400" />
+            </NumberInputStepper>
+          </NumberInput>
+        )}
+        <Text color="gray.500" fontSize="xs" mt={1}>
+          {`${value} ${unit}`}
+        </Text>
+      </Box>
+    );
+  };
 
   return (
     <form onSubmit={(e) => {
       e.preventDefault();
-      onSubmit(config);
+      
+      const finalConfig = {
+        ...config,
+        lotteryWinProbability: parseFloat(floatInputs.lotteryWinProbability) || 0,
+        maliciousNodeRatio: parseFloat(floatInputs.maliciousNodeRatio) || 0
+      };
+      
+      onSubmit(finalConfig);
     }}>
       <VStack spacing={8} align="stretch">
         {/* Node Configuration */}
@@ -118,7 +162,7 @@ export default function SimulationForm({ onSubmit, loading }: Props) {
         {/* Block Parameters */}
         <Box bg="gray.900" p={6} borderRadius="lg">
           <Heading size="md" color="white" mb={6}>Block Parameters</Heading>
-          <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
+          <SimpleGrid columns={{ base: 2, md: 4 }} spacing={6}>
             {renderParameter('Block Header Size', config.blockHeaderSize, 'bytes', 'blockHeaderSize')}
             {renderParameter('ER Header Size', config.erHeaderSize, 'bytes', 'erHeaderSize')}
             {renderParameter('ER Body Size', config.erBodySize, 'bytes', 'erBodySize')}

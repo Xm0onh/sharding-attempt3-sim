@@ -51,7 +51,7 @@ const (
 	NumNodes     = 10000
 	NumOperators = 20
 	// Shard parameters
-	NumShards = 3
+	NumShards = 1
 
 	// Attack parameters
 	MaliciousNodeRatio      = 0.1 // 10% of nodes are malicious
@@ -82,7 +82,6 @@ const (
 	TimeOut             = 2000 // Timeout for block download in milliseconds
 
 	// Download parameters
-	NumBlocksToDownload = 100
 )
 
 // InitializeAttackSchedule initializes the attack schedule with both start and end times

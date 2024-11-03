@@ -3,11 +3,11 @@ package utils
 import (
 	"math"
 	"math/rand"
-	cfg "sharding/config"
+	"sharding/config"
 )
 
 // SimulateNetworkBlockDelay calculates network delay for full block propagation
-func SimulateNetworkBlockDelay(NumOperators int) float64 {
+func SimulateNetworkBlockDelay(cfg *config.Config, NumOperators int) float64 {
 	// Randomly choose network parameters
 	networkDelayMean := cfg.MinNetworkDelayMean + rand.Float64()*(cfg.MaxNetworkDelayMean-cfg.MinNetworkDelayMean)
 	networkDelayStd := cfg.MinNetworkDelayStd + rand.Float64()*(cfg.MaxNetworkDelayStd-cfg.MinNetworkDelayStd)
@@ -32,7 +32,7 @@ func SimulateNetworkBlockDelay(NumOperators int) float64 {
 }
 
 // SimulateNetworkBlockHeaderDelay calculates network delay for block header propagation
-func SimulateNetworkBlockHeaderDelay() float64 {
+func SimulateNetworkBlockHeaderDelay(cfg *config.Config) float64 {
 	// Randomly choose network parameters
 	networkDelayMean := cfg.MinNetworkDelayMean + rand.Float64()*(cfg.MaxNetworkDelayMean-cfg.MinNetworkDelayMean)
 	networkDelayStd := cfg.MinNetworkDelayStd + rand.Float64()*(cfg.MaxNetworkDelayStd-cfg.MinNetworkDelayStd)
@@ -58,7 +58,7 @@ func SimulateNetworkBlockHeaderDelay() float64 {
 }
 
 // SimulateNetworkBlockDownloadDelay calculates network delay for block downloads
-func SimulateNetworkBlockDownloadDelay() float64 {
+func SimulateNetworkBlockDownloadDelay(cfg *config.Config) float64 {
 	networkDelayMean := cfg.MinNetworkDelayMean + rand.Float64()*(cfg.MaxNetworkDelayMean-cfg.MinNetworkDelayMean)
 	networkDelayStd := cfg.MinNetworkDelayStd + rand.Float64()*(cfg.MaxNetworkDelayStd-cfg.MinNetworkDelayStd)
 

@@ -85,7 +85,9 @@ func handleSimulationWithConfig(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Failed to parse configuration: %v", err), http.StatusBadRequest)
 		return
 	}
-
+	// Printing the received config from the user
+	fmt.Println("Received config from the user:", userConfig)
+	fmt.Println("Num of blocks to download:", userConfig.NumBlocksToDownload)
 	// Initialize metrics collector
 	metricsCollector = metrics.NewMetricsCollector()
 
@@ -199,7 +201,7 @@ func handleSimulation(w http.ResponseWriter, r *http.Request) {
 		MaxGossipFanout:         config.MaxGossipFanout,
 		MaxP2PConnections:       config.MaxP2PConnections,
 		TimeOut:                 config.TimeOut,
-		NumBlocksToDownload:     config.NumBlocksToDownload,
+		NumBlocksToDownload:     100,
 	}
 
 	// Create a new simulation instance with metrics collector

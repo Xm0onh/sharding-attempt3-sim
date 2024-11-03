@@ -20,32 +20,32 @@ export default function Home() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          numNodes: config.numNodes,
-          numShards: config.numShards,
-          numOperators: config.numOperators,
-          simulationTime: config.simulationTime,
-          timeStep: config.timeStep,
-          maliciousNodeRatio: config.maliciousNodeRatio,
-          lotteryWinProbability: config.lotteryWinProbability,
-          maliciousNodeMultiplier: config.maliciousNodeMultiplier,
-          blockProductionInterval: config.blockProductionInterval,
-          transactionsPerBlock: config.transactionsPerBlock,
-          blockSize: config.blockSize,
-          blockHeaderSize: config.blockHeaderSize,
-          erHeaderSize: config.erHeaderSize,
-          erBodySize: config.erBodySize,
-          networkBandwidth: config.networkBandwidth,
-          minNetworkDelayMean: config.minNetworkDelayMean,
-          maxNetworkDelayMean: config.maxNetworkDelayMean,
-          minNetworkDelayStd: config.minNetworkDelayStd,
-          maxNetworkDelayStd: config.maxNetworkDelayStd,
-          minGossipFanout: config.minGossipFanout,
-          maxGossipFanout: config.maxGossipFanout,
-          maxP2PConnections: config.maxP2PConnections,
-          timeOut: config.timeOut,
-          numBlocksToDownload: config.numBlocksToDownload,
-          attackStartTime: config.attackStartTime,
-          attackEndTime: config.attackEndTime
+          NumNodes: config.numNodes,
+          NumShards: config.numShards,
+          NumOperators: config.numOperators,
+          SimulationTime: config.simulationTime,
+          TimeStep: config.timeStep,
+          MaliciousNodeRatio: config.maliciousNodeRatio,
+          LotteryWinProbability: config.lotteryWinProbability,
+          MaliciousNodeMultiplier: config.maliciousNodeMultiplier,
+          BlockProductionInterval: config.blockProductionInterval,
+          TransactionsPerBlock: config.transactionsPerBlock,
+          BlockSize: config.blockSize,
+          BlockHeaderSize: config.blockHeaderSize,
+          ERHeaderSize: config.erHeaderSize,
+          ERBodySize: config.erBodySize,
+          NetworkBandwidth: config.networkBandwidth,
+          MinNetworkDelayMean: config.minNetworkDelayMean,
+          MaxNetworkDelayMean: config.maxNetworkDelayMean,
+          MinNetworkDelayStd: config.minNetworkDelayStd,
+          MaxNetworkDelayStd: config.maxNetworkDelayStd,
+          MinGossipFanout: config.minGossipFanout,
+          MaxGossipFanout: config.maxGossipFanout,
+          MaxP2PConnections: config.maxP2PConnections,
+          TimeOut: config.timeOut,
+          NumBlocksToDownload: config.numBlocksToDownload,
+          AttackStartTime: config.attackStartTime,
+          AttackEndTime: config.attackEndTime
         })
       });
       
@@ -54,6 +54,8 @@ export default function Home() {
       }
       
       const data = await response.json();
+      console.log('Sent config:', config);
+      console.log('Received data:', data);
       setResults(data);
     } catch (error) {
       console.error('Error fetching simulation results:', error);

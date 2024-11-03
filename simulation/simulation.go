@@ -61,7 +61,7 @@ func NewSimulation(cfg config.Config, metrics *metrics.MetricsCollector) *Simula
 
 func (sim *Simulation) initializeNodes() {
 	for i := 0; i < sim.Config.NumNodes; i++ {
-		n := node.NewNode(i, false)
+		n := node.NewNode(&sim.Config, i, false)
 		sim.Nodes[n.ID] = n
 	}
 }
@@ -74,7 +74,7 @@ func (sim *Simulation) initializeOperators() {
 	operatorID := 0
 	for shardID := 0; shardID < sim.Config.NumShards; shardID++ {
 		for i := 0; i < operatorsPerShard; i++ {
-			n := node.NewNode(operatorID, true)
+			n := node.NewNode(&sim.Config, operatorID, true)
 			sim.Operators[n.ID] = n
 			operatorID++
 		}
@@ -225,9 +225,9 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 			Step6: Capture the time that it took to download
 		*/
 
-		proposers := sim.getProposers(latestBlockID)
+		proposers := sim.getProposers(sim.Config, latestBlockID)
 		proposers = append(proposers, sim.getShardOperators(shardID)...)
-		downloadTime := producerNode.DownloadLatestKBlocks(proposers, sim.CurrentTime)
+		downloadTime := producerNode.DownloadLatestKBlocks(&sim.Config, proposers, sim.CurrentTime)
 		sim.NetworkBlockDownloadDelays[shardID] = append(sim.NetworkBlockDownloadDelays[shardID], int64(downloadTime))
 
 		// fmt.Println("Download time for node", producerNode.ID, "is", downloadTime)
@@ -242,7 +242,7 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 		producerNode.HandleBlockHeader(blkHeader)
 		// Node broadcasts the block to peers in the shard
 		shardOperatorNodes := sim.getShardOperators(shardID)
-		events, delay := producerNode.BroadcastBlock(blk, shardOperatorNodes, sim.CurrentTime)
+		events, delay := producerNode.BroadcastBlock(&sim.Config, blk, shardOperatorNodes, sim.CurrentTime)
 
 		if len(events) > 0 {
 			sim.NetworkBlockBroadcastDelays[shardID] = append(sim.NetworkBlockBroadcastDelays[shardID], int64(delay/float64(len(events))))
@@ -252,7 +252,7 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 		sim.Logs = append(sim.Logs, log)
 		sim.NextBlockProducer[shardID][blk.ID] = true
 		// Broadcast block header to all nodes in the whole network
-		events, delay = producerNode.BroadcastBlockHeader(blkHeader, sim.getNodes(), sim.CurrentTime)
+		events, delay = producerNode.BroadcastBlockHeader(&sim.Config, blkHeader, sim.getNodes(), sim.CurrentTime)
 
 		if len(events) > 0 {
 			sim.NetworkBlockHeaderDelays[shardID] = append(sim.NetworkBlockHeaderDelays[shardID], int64(delay/float64(len(events))))
@@ -330,10 +330,10 @@ func (sim *Simulation) getShardOperators(shardID int) []*node.Node {
 	return nodes
 }
 
-func (sim *Simulation) getProposers(latestBlockID int) []*node.Node {
+func (sim *Simulation) getProposers(cfg config.Config, latestBlockID int) []*node.Node {
 	proposers := make([]*node.Node, 0)
 	// Get the last k block headers
-	for i := latestBlockID; i > max(0, latestBlockID-config.NumBlocksToDownload); i-- {
+	for i := latestBlockID; i > max(0, latestBlockID-cfg.NumBlocksToDownload); i-- {
 		// Check each node to find the proposer of block i
 		for _, n := range sim.Nodes {
 			if header, exists := n.BlockHeaderChain[i]; exists && header.ProducerID >= 0 {

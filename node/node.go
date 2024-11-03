@@ -20,7 +20,7 @@ type Node struct {
 	BlockHeaderChain map[int]*block.BlockHeader
 }
 
-func NewNode(id int, isOperator bool) *Node {
+func NewNode(cfg *config.Config, id int, isOperator bool) *Node {
 	n := &Node{
 		ID:               id,
 		IsHonest:         true,
@@ -31,7 +31,7 @@ func NewNode(id int, isOperator bool) *Node {
 		BlockHeaderChain: make(map[int]*block.BlockHeader),
 	}
 	n.BlockHeaderChain[0] = &block.BlockHeader{ID: 0}
-	if rand.Float64() < config.MaliciousNodeRatio {
+	if rand.Float64() < cfg.MaliciousNodeRatio {
 		n.IsHonest = false
 	}
 
@@ -69,12 +69,12 @@ func (n *Node) CreateBlockHeader(previousBlockID int, currentTime int64) *block.
 	return blkHeader
 }
 
-func (n *Node) BroadcastBlock(blk *block.Block, peers []*Node, currentTime int64) ([]*event.Event, float64) {
+func (n *Node) BroadcastBlock(cfg *config.Config, blk *block.Block, peers []*Node, currentTime int64) ([]*event.Event, float64) {
 	events := make([]*event.Event, 0)
 	delay := 0.0
 	for _, peerNode := range peers {
 		if peerNode.ID != n.ID {
-			delay += utils.SimulateNetworkBlockDelay(len(peers))
+			delay += utils.SimulateNetworkBlockDelay(cfg, len(peers))
 			e := &event.Event{
 				Timestamp: float64(currentTime),
 				Type:      event.MessageEvent,
@@ -87,13 +87,13 @@ func (n *Node) BroadcastBlock(blk *block.Block, peers []*Node, currentTime int64
 	return events, delay
 }
 
-func (n *Node) BroadcastBlockHeader(blk *block.BlockHeader, peers []*Node, currentTime int64) ([]*event.Event, float64) {
+func (n *Node) BroadcastBlockHeader(cfg *config.Config, blk *block.BlockHeader, peers []*Node, currentTime int64) ([]*event.Event, float64) {
 	events := make([]*event.Event, 0)
 	delay := 0.0
 	for _, peerNode := range peers {
 		if peerNode.ID != n.ID {
 			peerNode.HandleBlockHeader(blk)
-			delay += utils.SimulateNetworkBlockHeaderDelay()
+			delay += utils.SimulateNetworkBlockHeaderDelay(cfg)
 			e := &event.Event{
 				Timestamp: float64(currentTime) + delay,
 				Type:      event.MessageEvent,
@@ -143,9 +143,9 @@ func (n *Node) LatestBlockHeaderID() int {
 	return n.BlockHeaderChain[len(n.BlockHeaderChain)-1].ID
 }
 
-func (n *Node) DownloadLatestKBlocks(peers []*Node, currentTime int64) float64 {
+func (n *Node) DownloadLatestKBlocks(cfg *config.Config, peers []*Node, currentTime int64) float64 {
 	latestID := n.LatestBlockHeaderID()
-	startID := max(0, latestID-config.NumBlocksToDownload)
+	startID := max(0, latestID-cfg.NumBlocksToDownload)
 	counter := 0
 	type downloadResult struct {
 		blockID int
@@ -164,15 +164,15 @@ func (n *Node) DownloadLatestKBlocks(peers []*Node, currentTime int64) float64 {
 		}
 	}
 
-	resultChan := make(chan downloadResult, config.MaxP2PConnections)
+	resultChan := make(chan downloadResult, cfg.MaxP2PConnections)
 	var mu sync.Mutex
 	downloadedBlocks := make(map[int]bool)
 	totalDelay := 0.0
 
 	// Process blocks in batches of size MaxP2PConnections
-	for batchStart := latestID; batchStart > startID; batchStart -= config.MaxP2PConnections {
+	for batchStart := latestID; batchStart > startID; batchStart -= cfg.MaxP2PConnections {
 		counter++
-		batchEnd := max(startID, batchStart-config.MaxP2PConnections)
+		batchEnd := max(startID, batchStart-cfg.MaxP2PConnections)
 		activeDLs := 0
 		batchMaxDelay := 0.0
 
@@ -197,9 +197,9 @@ func (n *Node) DownloadLatestKBlocks(peers []*Node, currentTime int64) float64 {
 					mu.Unlock()
 
 					if block, exists := peer.Blockchain[bid]; exists {
-						delay := utils.SimulateNetworkBlockDownloadDelay()
+						delay := utils.SimulateNetworkBlockDownloadDelay(cfg)
 						if !peer.IsHonest {
-							delay += float64(config.TimeOut)
+							delay += float64(cfg.TimeOut)
 						}
 						result.block = block
 						result.delay = delay
@@ -219,9 +219,9 @@ func (n *Node) DownloadLatestKBlocks(peers []*Node, currentTime int64) float64 {
 						mu.Unlock()
 
 						if block, exists := peer.Blockchain[bid]; exists {
-							delay := utils.SimulateNetworkBlockDownloadDelay()
+							delay := utils.SimulateNetworkBlockDownloadDelay(cfg)
 							if !peer.IsHonest {
-								delay += float64(config.TimeOut)
+								delay += float64(cfg.TimeOut)
 							}
 							result.block = block
 							result.delay = delay
