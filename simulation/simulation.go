@@ -32,6 +32,7 @@ type Simulation struct {
 	currentStepMaliciousShardRotations int
 	TotalRotations                     int
 	NextBlockProducer                  map[int]map[int]bool
+	NodeCounter                        map[int]int
 }
 
 func NewSimulation(cfg config.Config, metrics *metrics.MetricsCollector) *Simulation {
@@ -48,6 +49,7 @@ func NewSimulation(cfg config.Config, metrics *metrics.MetricsCollector) *Simula
 		NetworkBlockDownloadDelays:  make(map[int][]int64),
 		Logs:                        make([]string, 0),
 		NextBlockProducer:           make(map[int]map[int]bool),
+		NodeCounter:                 make(map[int]int),
 	}
 
 	sim.initializeNodes()
@@ -121,7 +123,7 @@ func (sim *Simulation) Run() {
 		e := heap.Pop(sim.EventQueue).(*event.Event)
 		sim.CurrentTime = int64(e.Timestamp)
 		sim.processEvent(e)
-		// fmt.Println("Current time", sim.CurrentTime)
+		fmt.Println("Current time", sim.CurrentTime)
 	}
 
 	// Network delay for each shard
@@ -182,6 +184,7 @@ func (sim *Simulation) processLotteryWin(n *node.Node, newShardID int) {
 		// Assign node to the new shard
 		newShard := sim.Shards[newShardID]
 		newShard.AddNode(n)
+		sim.NodeCounter[newShardID]++
 		n.AssignedShard = newShardID
 		sim.NextBlockProducer[newShardID][n.ID] = false
 		if sim.CurrentTime < sim.Config.SimulationTime {
@@ -300,6 +303,9 @@ func (sim *Simulation) handleMetricsEvent() {
 		}
 		heap.Push(sim.EventQueue, nextEvent)
 	}
+	// for i := range len(sim.Shards) {
+	// 	fmt.Println("Shard", i, "joined the network", sim.NodeCounter[i])
+	// }
 }
 
 func (sim *Simulation) getShardNodes(shardID int) []*node.Node {

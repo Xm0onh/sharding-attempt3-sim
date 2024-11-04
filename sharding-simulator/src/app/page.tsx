@@ -13,8 +13,8 @@ export default function Home() {
   const runSimulation = async (config: SimulationConfig) => {
     try {
       setLoading(true);
-      
-      const response = await fetch('http://localhost:8080/simulate-with-config', {
+      console.log(`${process.env.NEXT_PUBLIC_API_URL}/simulate-with-config`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/simulate-with-config`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
