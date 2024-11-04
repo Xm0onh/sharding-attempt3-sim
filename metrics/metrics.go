@@ -243,6 +243,32 @@ func writeTimeWindowMetrics(w io.Writer, title string, metrics TimeWindowMetrics
 	}
 	fmt.Fprintf(w, "\n") // Add spacing
 
+	// Average Malicious Blocks
+	// Average Honest Blocks
+	// Average Total Blocks
+
+	// Calculate averages across all shards
+	totalMaliciousBlocks := 0
+	totalHonestBlocks := 0
+	totalAllBlocks := 0
+	numShards := len(metrics.ShardStats)
+
+	for _, stats := range metrics.ShardStats {
+		totalMaliciousBlocks += stats.MaliciousBlocks
+		totalHonestBlocks += stats.HonestBlocks
+		totalAllBlocks += stats.MaliciousBlocks + stats.HonestBlocks
+	}
+
+	avgMaliciousBlocks := float64(totalMaliciousBlocks) / float64(numShards)
+	avgHonestBlocks := float64(totalHonestBlocks) / float64(numShards)
+	avgTotalBlocks := float64(totalAllBlocks) / float64(numShards)
+
+	fmt.Fprintf(w, "Average Block Statistics:\n")
+	fmt.Fprintf(w, "  Average Malicious Blocks per Shard: %d\n", int(avgMaliciousBlocks))
+	fmt.Fprintf(w, "  Average Honest Blocks per Shard: %d\n", int(avgHonestBlocks))
+	fmt.Fprintf(w, "  Average Total Blocks per Shard: %d\n", int(avgTotalBlocks))
+	fmt.Fprintf(w, "\n")
+
 	// Original metrics
 	// fmt.Fprintf(w, "Simulation Metrics:\n")
 	// fmt.Fprintf(w, "  Total Events: %d\n", metrics.TotalEvents)
@@ -261,7 +287,17 @@ func writeTimeWindowMetrics(w io.Writer, title string, metrics TimeWindowMetrics
 		fmt.Fprintf(w, "    Shard %d: %.2fms\n", shardID, avgDelay)
 	}
 	fmt.Fprintf(w, "\n")
-
+	// Average of BlockDownloadDelay of all shards
+	totalBlockDownDelay := 0.0
+	shardCount := 0
+	for _, avgDelay := range metrics.NetworkMetrics.AverageDownloadDelay {
+		totalBlockDownDelay += avgDelay
+		shardCount++
+	}
+	if shardCount > 0 {
+		totalBlockDownDelay = totalBlockDownDelay / float64(shardCount)
+	}
+	fmt.Fprintf(w, "  Average Block Download Delay: %.2fms\n", totalBlockDownDelay)
 	// Add TPS calculation
 	totalBlocks := 0
 	for _, stats := range metrics.ShardStats {
