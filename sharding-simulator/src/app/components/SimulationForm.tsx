@@ -164,8 +164,8 @@ export default function SimulationForm({ onSubmit, loading }: Props) {
           <Heading size="md" color="white" mb={6}>Block Parameters</Heading>
           <SimpleGrid columns={{ base: 2, md: 4 }} spacing={6}>
             {renderParameter('Block Header Size', config.blockHeaderSize, 'bytes', 'blockHeaderSize')}
-            {renderParameter('ER Header Size', config.erHeaderSize, 'bytes', 'erHeaderSize')}
-            {renderParameter('ER Body Size', config.erBodySize, 'bytes', 'erBodySize')}
+            {/* {renderParameter('ER Header Size', config.erHeaderSize, 'bytes', 'erHeaderSize')}
+            {renderParameter('ER Body Size', config.erBodySize, 'bytes', 'erBodySize')} */}
             {renderParameter('Blocks to Download', config.numBlocksToDownload, 'blocks', 'numBlocksToDownload')}
           </SimpleGrid>
         </Box>
@@ -190,10 +190,10 @@ export default function SimulationForm({ onSubmit, loading }: Props) {
         <Box bg="gray.900" p={6} borderRadius="lg">
           <Heading size="md" color="white" mb={6}>Attack Configuration</Heading>
           <SimpleGrid columns={{ base: 2, md: 4 }} spacing={6}>
-            {renderParameter('Malicious Node Ratio', config.maliciousNodeRatio * 100, '%', 'maliciousNodeRatio')}
-            {renderParameter('Malicious Node Multiplier', config.maliciousNodeMultiplier, 'x', 'maliciousNodeMultiplier')}
-            {renderParameter('Attack Start Time', config.attackStartTime, 'time units', 'attackStartTime')}
-            {renderParameter('Attack End Time', config.attackEndTime, 'time units', 'attackEndTime')}
+            {renderParameter('Malicious Node Ratio', (config.maliciousNodeRatio) * 100, '%', 'maliciousNodeRatio')}
+            {/* {renderParameter('Malicious Node Multiplier', config.maliciousNodeMultiplier, 'x', 'maliciousNodeMultiplier')} */}
+            {/* {renderParameter('Attack Start Time', config.attackStartTime, 'time units', 'attackStartTime')}
+            {renderParameter('Attack End Time', config.attackEndTime, 'time units', 'attackEndTime')} */}
           </SimpleGrid>
         </Box>
 

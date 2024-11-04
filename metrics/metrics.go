@@ -314,7 +314,7 @@ func (mc *MetricsCollector) GetSimulationResponse() SimulationResponse {
 	mc.calculateAverages()
 
 	response := SimulationResponse{
-		TransactionSize:      100, // Fixed value from the report
+		TransactionSize:      config.TxnSize, // Fixed value from the report
 		TransactionsPerBlock: config.TransactionsPerBlock,
 		BlockSize:            config.BlockSize / 1000,
 		BlockProduction:      make(map[int]ShardStats),
