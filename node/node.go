@@ -39,15 +39,16 @@ func NewNode(cfg *config.Config, id int, isOperator bool) *Node {
 }
 
 func (n *Node) ParticipateInLottery(currentTime int64, numShards int) (bool, int) {
-	if n.IsAssignedToShard() {
-		return false, -1 // Already assigned to a shard
-	}
+	// if n.IsAssignedToShard() {
+	// 	fmt.Println("Called")
+	// 	return false, -1
+	// }
 
 	win := lottery.WinLottery(n.IsHonest, 1, currentTime, config.AttackStartTime, config.AttackEndTime) // Each LotteryEvent represents one attempt
 	if win {
 		// Assign a shard based on the winning ticket
-		n.AssignedShard = lottery.AssignShard(n.ID, currentTime, numShards)
-		return true, n.AssignedShard
+		newShardID := lottery.AssignShard(n.ID, currentTime, numShards)
+		return true, newShardID
 	}
 	return false, -1
 }

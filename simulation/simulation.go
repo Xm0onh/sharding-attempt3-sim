@@ -5,7 +5,6 @@ package simulation
 import (
 	"container/heap"
 	"fmt"
-	"sharding/block"
 	"sharding/config"
 	"sharding/event"
 	"sharding/metrics"
@@ -176,9 +175,17 @@ func (sim *Simulation) processLotteryWin(n *node.Node, newShardID int) {
 		// Remove node from old shard if it was assigned to one
 		if oldShardID != -1 {
 			oldShard := sim.Shards[oldShardID]
+			sim.NextBlockProducer[oldShardID][n.ID] = false
+			if sim.CurrentTime < sim.Config.SimulationTime {
+				nextEvent := &event.Event{
+					Timestamp: float64(sim.CurrentTime),
+					Type:      event.ShardBlockProductionEvent,
+					ShardID:   oldShardID,
+				}
+				heap.Push(sim.EventQueue, nextEvent)
+			}
 			oldShard.RemoveNode(n.ID)
-			delete(sim.NextBlockProducer[oldShardID], n.ID)
-
+			// delete(sim.NextBlockProducer[oldShardID], n.ID)
 		}
 
 		// Assign node to the new shard
@@ -186,15 +193,6 @@ func (sim *Simulation) processLotteryWin(n *node.Node, newShardID int) {
 		newShard.AddNode(n)
 		sim.NodeCounter[newShardID]++
 		n.AssignedShard = newShardID
-		sim.NextBlockProducer[newShardID][n.ID] = false
-		if sim.CurrentTime < sim.Config.SimulationTime {
-			nextEvent := &event.Event{
-				Timestamp: float64(sim.CurrentTime),
-				Type:      event.ShardBlockProductionEvent,
-				ShardID:   newShardID,
-			}
-			heap.Push(sim.EventQueue, nextEvent)
-		}
 
 	}
 
@@ -228,10 +226,10 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 			Step6: Capture the time that it took to download
 		*/
 
-		proposers := sim.getProposers(sim.Config, latestBlockID)
-		proposers = append(proposers, sim.getShardOperators(shardID)...)
-		downloadTime := producerNode.DownloadLatestKBlocks(&sim.Config, proposers, sim.CurrentTime)
-		sim.NetworkBlockDownloadDelays[shardID] = append(sim.NetworkBlockDownloadDelays[shardID], int64(downloadTime))
+		// proposers := sim.getProposers(sim.Config, latestBlockID)
+		// proposers = append(proposers, sim.getShardOperators(shardID)...)
+		// downloadTime := producerNode.DownloadLatestKBlocks(&sim.Config, proposers, sim.CurrentTime)
+		// sim.NetworkBlockDownloadDelays[shardID] = append(sim.NetworkBlockDownloadDelays[shardID], int64(downloadTime))
 
 		// fmt.Println("Download time for node", producerNode.ID, "is", downloadTime)
 
@@ -245,7 +243,8 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 		producerNode.HandleBlockHeader(blkHeader)
 		// Node broadcasts the block to peers in the shard
 		shardOperatorNodes := sim.getShardOperators(shardID)
-		events, delay := producerNode.BroadcastBlock(&sim.Config, blk, shardOperatorNodes, sim.CurrentTime)
+		shardNodes := append(sim.getShardNodes(shardID), shardOperatorNodes...)
+		events, delay := producerNode.BroadcastBlock(&sim.Config, blk, shardNodes, sim.CurrentTime)
 
 		if len(events) > 0 {
 			sim.NetworkBlockBroadcastDelays[shardID] = append(sim.NetworkBlockBroadcastDelays[shardID], int64(delay/float64(len(events))))
@@ -265,18 +264,6 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 		sim.Shards[shardID].AddBlock(blk)
 		// reset the sim.NextBlockProducer map for the shard
 		sim.NextBlockProducer[shardID] = make(map[int]bool)
-	}
-
-}
-
-func (sim *Simulation) handleMessageEvent(e *event.Event) {
-	n := sim.Nodes[e.NodeID]
-	n.ProcessMessage(e)
-
-	blk, ok := e.Data.(*block.Block)
-	if ok {
-		s := sim.Shards[blk.ShardID]
-		s.AddBlock(blk)
 	}
 }
 
