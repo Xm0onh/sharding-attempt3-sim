@@ -89,3 +89,13 @@ func (s *Shard) IsolateNode(nodeID int) {
 func (s *Shard) GetBlock(id int) *block.Block {
 	return s.Blocks[id]
 }
+
+func (s *Shard) GetLatestBlockID() int {
+	latestID := 0
+	for _, block := range s.Blocks {
+		if block.ID > latestID {
+			latestID = block.ID
+		}
+	}
+	return latestID
+}

@@ -48,10 +48,10 @@ const (
 	TimeStep       = 1    // Simulation time step
 
 	// Node parameters
-	NumNodes     = 30_000
-	NumOperators = 200
+	NumNodes     = 1_000
+	NumOperators = 20
 	// Shard parameters
-	NumShards = 60
+	NumShards = 2
 
 	// Attack parameters
 	MaliciousNodeRatio      = 0.1 // 10% of nodes are malicious

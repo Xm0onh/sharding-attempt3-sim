@@ -7,6 +7,7 @@ import (
 	"sharding/config"
 	"sharding/node"
 	"sharding/shard"
+	"sort"
 )
 
 type NetworkMetrics struct {
@@ -23,6 +24,7 @@ type ShardMetrics struct {
 	MaliciousNodes  int
 	HonestBlocks    int
 	MaliciousBlocks int
+	BlockIndexes    []int
 }
 
 type TimeWindowMetrics struct {
@@ -134,7 +136,9 @@ func (mc *MetricsCollector) Collect(
 
 	// Update shard statistics
 	for shardID, s := range shards {
-		stats := &ShardMetrics{}
+		stats := &ShardMetrics{
+			BlockIndexes: make([]int, 0),
+		}
 		mc.CurrentMetrics.ShardStats[shardID] = stats
 
 		// Count honest and malicious nodes
@@ -143,16 +147,19 @@ func (mc *MetricsCollector) Collect(
 		stats.HonestNodes = len(honestNodes)
 		stats.MaliciousNodes = len(maliciousNodes)
 
-		// Count blocks in the shard
+		// Count blocks and collect indexes
 		stats.HonestBlocks = 0
 		stats.MaliciousBlocks = 0
-		for _, block := range s.Blocks {
-			if block.IsMalicious {
+		for idx := range s.Blocks {
+			stats.BlockIndexes = append(stats.BlockIndexes, s.Blocks[idx].ID)
+			if s.Blocks[idx].IsMalicious {
 				stats.MaliciousBlocks++
 			} else {
 				stats.HonestBlocks++
 			}
 		}
+		// Sort the block indexes
+		sort.Ints(stats.BlockIndexes)
 
 		// Update total blocks count
 		mc.CurrentMetrics.TotalBlocks += stats.HonestBlocks + stats.MaliciousBlocks
@@ -308,6 +315,13 @@ func writeTimeWindowMetrics(w io.Writer, title string, metrics TimeWindowMetrics
 	tps := float64(totalTransactions) / float64(config.SimulationTime)
 	fmt.Fprintf(w, "Performance Metrics:\n")
 	fmt.Fprintf(w, "  Transactions Per Second (TPS): %.2f\n\n", tps)
+
+	// Printing the block indexes for each shard
+	fmt.Fprintf(w, "Block Index Chains:\n")
+	for shardID, stats := range metrics.ShardStats {
+		fmt.Fprintf(w, "  Shard %d: %v\n", shardID, stats.BlockIndexes)
+	}
+	fmt.Fprintf(w, "\n")
 }
 
 func (mc *MetricsCollector) GetSimulationResponse() SimulationResponse {

@@ -5,6 +5,7 @@ package simulation
 import (
 	"container/heap"
 	"fmt"
+	"sharding/block"
 	"sharding/config"
 	"sharding/event"
 	"sharding/metrics"
@@ -136,6 +137,8 @@ func (sim *Simulation) processEvent(e *event.Event) {
 		sim.handleLotteryEvent()
 	case event.ShardBlockProductionEvent:
 		sim.handleShardBlockProductionEvent(e)
+	case event.MessageEvent:
+		sim.handleMessageEvent(e)
 	default:
 		// Unknown event type
 		log := fmt.Sprintf("[Simulation] Unknown event type at time %d", sim.CurrentTime)
@@ -217,7 +220,7 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 
 	} else {
 		// BLock Header Chain
-		latestBlockID := producerNode.LatestBlockHeaderID()
+		latestBlockID := sim.Shards[shardID].GetLatestBlockID()
 		/*
 			Step1: Pull out the proposers of k latest blocks
 			Step2: Create an array of proposers
@@ -226,12 +229,10 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 			Step6: Capture the time that it took to download
 		*/
 
-		// proposers := sim.getProposers(sim.Config, latestBlockID)
-		// proposers = append(proposers, sim.getShardOperators(shardID)...)
-		// downloadTime := producerNode.DownloadLatestKBlocks(&sim.Config, proposers, sim.CurrentTime)
-		// sim.NetworkBlockDownloadDelays[shardID] = append(sim.NetworkBlockDownloadDelays[shardID], int64(downloadTime))
-
-		// fmt.Println("Download time for node", producerNode.ID, "is", downloadTime)
+		proposers := sim.getProposers(sim.Config, latestBlockID, shardID)
+		proposers = append(proposers, sim.getShardOperators(shardID)...)
+		downloadTime := producerNode.DownloadLatestKBlocks(&sim.Config, proposers, shardID, sim.CurrentTime)
+		sim.NetworkBlockDownloadDelays[shardID] = append(sim.NetworkBlockDownloadDelays[shardID], int64(downloadTime))
 
 		blk := producerNode.CreateBlock(latestBlockID, sim.CurrentTime)
 		blkHeader := producerNode.CreateBlockHeader(latestBlockID, sim.CurrentTime)
@@ -264,6 +265,17 @@ func (sim *Simulation) handleShardBlockProductionEvent(e *event.Event) {
 		sim.Shards[shardID].AddBlock(blk)
 		// reset the sim.NextBlockProducer map for the shard
 		sim.NextBlockProducer[shardID] = make(map[int]bool)
+	}
+}
+
+func (sim *Simulation) handleMessageEvent(e *event.Event) {
+	n := sim.Nodes[e.NodeID]
+	n.ProcessMessage(e)
+
+	blk, ok := e.Data.(*block.Block)
+	if ok {
+		s := sim.Shards[blk.ShardID]
+		s.AddBlock(blk)
 	}
 }
 
@@ -323,13 +335,13 @@ func (sim *Simulation) getShardOperators(shardID int) []*node.Node {
 	return nodes
 }
 
-func (sim *Simulation) getProposers(cfg config.Config, latestBlockID int) []*node.Node {
+func (sim *Simulation) getProposers(cfg config.Config, latestBlockID int, shardID int) []*node.Node {
 	proposers := make([]*node.Node, 0)
 	// Get the last k block headers
 	for i := latestBlockID; i > max(0, latestBlockID-cfg.NumBlocksToDownload); i-- {
 		// Check each node to find the proposer of block i
 		for _, n := range sim.Nodes {
-			if header, exists := n.BlockHeaderChain[i]; exists && header.ProducerID >= 0 {
+			if header, exists := n.BlockHeaderChain[shardID][i]; exists && header.ProducerID >= 0 {
 				if proposerNode, ok := sim.Nodes[header.ProducerID]; ok {
 					proposers = append(proposers, proposerNode)
 				}

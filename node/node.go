@@ -16,8 +16,8 @@ type Node struct {
 	IsOperator       bool
 	AssignedShard    int
 	Resources        int
-	Blockchain       map[int]*block.Block
-	BlockHeaderChain map[int]*block.BlockHeader
+	Blockchain       map[int]map[int]*block.Block
+	BlockHeaderChain map[int]map[int]*block.BlockHeader
 }
 
 func NewNode(cfg *config.Config, id int, isOperator bool) *Node {
@@ -25,12 +25,18 @@ func NewNode(cfg *config.Config, id int, isOperator bool) *Node {
 		ID:               id,
 		IsHonest:         true,
 		IsOperator:       isOperator,
-		AssignedShard:    -1, // Unassigned initially
+		AssignedShard:    -1,
 		Resources:        1,
-		Blockchain:       make(map[int]*block.Block),
-		BlockHeaderChain: make(map[int]*block.BlockHeader),
+		Blockchain:       make(map[int]map[int]*block.Block),
+		BlockHeaderChain: make(map[int]map[int]*block.BlockHeader),
 	}
-	n.BlockHeaderChain[0] = &block.BlockHeader{ID: 0}
+
+	for i := 0; i < cfg.NumShards; i++ {
+		n.Blockchain[i] = make(map[int]*block.Block)
+		n.BlockHeaderChain[i] = make(map[int]*block.BlockHeader)
+		n.BlockHeaderChain[i][0] = &block.BlockHeader{ID: 0}
+	}
+
 	if rand.Float64() < cfg.MaliciousNodeRatio {
 		n.IsHonest = false
 	}
@@ -120,32 +126,43 @@ func (n *Node) ProcessMessage(e *event.Event) {
 }
 
 func (n *Node) HandleBlock(blk *block.Block) {
-	if _, exists := n.Blockchain[blk.ID]; !exists {
+	if _, exists := n.Blockchain[blk.ShardID]; !exists {
+		n.Blockchain[blk.ShardID] = make(map[int]*block.Block)
+	}
+	if _, exists := n.Blockchain[blk.ShardID][blk.ID]; !exists {
 		if !blk.IsMalicious {
-			n.Blockchain[blk.ID] = blk
+			n.Blockchain[blk.ShardID][blk.ID] = blk
 		}
-		// The shard's state is managed by the simulation
 	}
 }
 
 func (n *Node) HandleBlockHeader(blk *block.BlockHeader) {
-	// fmt.Println("Handling block header for node", n.ID, "Block ID", blk.ID, "from", blk.ProducerID)
-	if _, exists := n.BlockHeaderChain[blk.ID]; !exists {
-		n.BlockHeaderChain[blk.ID] = blk
+	if _, exists := n.BlockHeaderChain[blk.ShardID]; !exists {
+		n.BlockHeaderChain[blk.ShardID] = make(map[int]*block.BlockHeader)
+	}
+	if _, exists := n.BlockHeaderChain[blk.ShardID][blk.ID]; !exists {
+		n.BlockHeaderChain[blk.ShardID][blk.ID] = blk
 	}
 }
 
-func (n *Node) LatestBlockHeaderID() int {
-	if len(n.BlockHeaderChain) == 0 {
-		n.BlockHeaderChain[0] = &block.BlockHeader{ID: 0}
+func (n *Node) LatestBlockHeaderID(shardID int) int {
+	if _, exists := n.BlockHeaderChain[shardID]; !exists {
+		n.BlockHeaderChain[shardID] = make(map[int]*block.BlockHeader)
+		n.BlockHeaderChain[shardID][0] = &block.BlockHeader{ID: 0}
 		return 0
 	}
-	// Return the ID of the last block header
-	return n.BlockHeaderChain[len(n.BlockHeaderChain)-1].ID
+
+	latestID := 0
+	for id := range n.BlockHeaderChain[shardID] {
+		if id > latestID {
+			latestID = id
+		}
+	}
+	return latestID
 }
 
-func (n *Node) DownloadLatestKBlocks(cfg *config.Config, peers []*Node, currentTime int64) float64 {
-	latestID := n.LatestBlockHeaderID()
+func (n *Node) DownloadLatestKBlocks(cfg *config.Config, peers []*Node, shardID int, currentTime int64) float64 {
+	latestID := n.LatestBlockHeaderID(shardID)
 	startID := max(0, latestID-cfg.NumBlocksToDownload)
 	counter := 0
 	type downloadResult struct {
@@ -197,7 +214,7 @@ func (n *Node) DownloadLatestKBlocks(cfg *config.Config, peers []*Node, currentT
 					}
 					mu.Unlock()
 
-					if block, exists := peer.Blockchain[bid]; exists {
+					if block, exists := peer.Blockchain[shardID][bid]; exists {
 						delay := utils.SimulateNetworkBlockDownloadDelay(cfg)
 						if !peer.IsHonest {
 							delay += float64(cfg.TimeOut)
@@ -219,7 +236,7 @@ func (n *Node) DownloadLatestKBlocks(cfg *config.Config, peers []*Node, currentT
 						}
 						mu.Unlock()
 
-						if block, exists := peer.Blockchain[bid]; exists {
+						if block, exists := peer.Blockchain[shardID][bid]; exists {
 							delay := utils.SimulateNetworkBlockDownloadDelay(cfg)
 							if !peer.IsHonest {
 								delay += float64(cfg.TimeOut)
@@ -241,7 +258,7 @@ func (n *Node) DownloadLatestKBlocks(cfg *config.Config, peers []*Node, currentT
 				mu.Lock()
 				downloadedBlocks[result.blockID] = true
 				if !result.block.IsMalicious {
-					n.Blockchain[result.blockID] = result.block
+					n.Blockchain[shardID][result.blockID] = result.block
 				}
 				batchMaxDelay = max(batchMaxDelay, result.delay)
 				mu.Unlock()
