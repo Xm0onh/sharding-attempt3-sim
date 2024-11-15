@@ -196,7 +196,7 @@ func (n *Node) DownloadLatestKBlocks(cfg *config.Config, peers []*Node, shardID 
 
 		// Start downloads for this batch
 		for blockID := batchStart; blockID > batchEnd; blockID-- {
-			if _, exists := n.Blockchain[blockID]; exists {
+			if _, exists := n.Blockchain[shardID][blockID]; exists {
 				continue
 			}
 
